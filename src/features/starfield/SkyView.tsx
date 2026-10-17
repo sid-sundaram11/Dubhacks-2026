@@ -238,6 +238,9 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
       transparent: true,
       depthTest: false,
       depthWrite: false,
+      // Screen Y grows downward, so this ortho projection flips Y and turns
+      // the stroke quads clockwise. Front-face culling would discard them.
+      side: THREE.DoubleSide,
       vertexShader: `
         in vec4 aColor;
         out vec4 vColor;
@@ -253,6 +256,7 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
       `,
     });
     const overlay = new THREE.Mesh(overlayGeometry, overlayMaterial);
+    overlay.frustumCulled = false;
     overlayScene.add(overlay);
 
     let built = -1;
