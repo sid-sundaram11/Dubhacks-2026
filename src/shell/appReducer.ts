@@ -35,8 +35,12 @@ export type AppAction =
   | { type: "manual_tap"; id: StarId }
   | { type: "toggle_manual" }
   | { type: "generation_started" }
-  | { type: "generation_finished"; constellation: CustomConstellation; offline: boolean }
+  | { type: "generation_finished"; constellation: CustomConstellation }
+  | { type: "generation_failed" }
+  | { type: "generation_unreachable" }
+  | { type: "generation_rate_limited" }
   | { type: "generation_needs_zoom" }
+  | { type: "set_status"; message: string }
   | { type: "undo" }
   | { type: "request_clear" }
   | { type: "confirm_clear" }
@@ -112,8 +116,31 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         edited: false,
         pathStarId: null,
         confirmClear: false,
-        statusMessage: action.offline ? "Used an offline creation." : action.constellation.name,
+        statusMessage: action.constellation.name,
       };
+    case "generation_failed":
+      return {
+        ...state,
+        generationStatus: "idle",
+        skyLocked: false,
+        statusMessage: "The subject could not be drawn.",
+      };
+    case "generation_unreachable":
+      return {
+        ...state,
+        generationStatus: "idle",
+        skyLocked: false,
+        statusMessage: "The drawing server is not running.",
+      };
+    case "generation_rate_limited":
+      return {
+        ...state,
+        generationStatus: "idle",
+        skyLocked: false,
+        statusMessage: "Gemini’s request limit is used up. Try again later.",
+      };
+    case "set_status":
+      return { ...state, statusMessage: action.message };
     case "generation_needs_zoom":
       return {
         ...state,

@@ -1,8 +1,9 @@
-import type { GenerationErrorCode } from "../src/domain/generation";
-import { drawingRequestSchema, drawingResponseSchema, MAX_REQUEST_BYTES } from "../src/features/generation/generationSchemas";
-import { buildModelPrompt, generateWithGemini } from "./gemini";
+import type { GenerationErrorCode, SubjectImage } from "../src/domain/generation";
+import { drawingRequestSchema, drawingResponseSchema, maskResponseSchema, MAX_REQUEST_BYTES } from "../src/features/generation/generationSchemas";
+import { generateWithGemini } from "./gemini";
+import { strokesFromMask } from "./skeleton";
 
-export type ModelGenerate = (userPrompt: string) => Promise<string>;
+export type ModelGenerate = (image: SubjectImage) => Promise<string>;
 
 function corsHeaders(): HeadersInit {
   return {
@@ -47,10 +48,17 @@ export async function handleGenerateConstellation(
   if (!parsed.success) return errorResponse(400, "invalid_request");
 
   try {
-    const raw = await generate(buildModelPrompt(parsed.data.prompt, parsed.data.stars));
+    const raw = await generate(parsed.data.image);
     const modelJson: unknown = JSON.parse(raw);
-    const drawing = drawingResponseSchema.safeParse(modelJson);
-    if (!drawing.success) return errorResponse(502, "generation_failed");
+    const mask = maskResponseSchema.safeParse(modelJson);
+    if (!mask.success) return errorResponse(502, "generation_failed");
+    const strokes = strokesFromMask(mask.data.mask);
+    const drawing = drawingResponseSchema.safeParse({
+      name: mask.data.name.trim(),
+      story: mask.data.story.trim(),
+      strokes,
+    });
+    if (!strokes || !drawing.success) return errorResponse(502, "generation_failed");
     return Response.json(
       {
         name: drawing.data.name.trim(),
@@ -62,6 +70,7 @@ export async function handleGenerateConstellation(
   } catch (error) {
     const name = error instanceof Error ? error.name : "";
     if (name === "TimeoutError" || name === "AbortError") return errorResponse(504, "timeout");
+    if ((error as { status?: unknown }).status === 429) return errorResponse(429, "rate_limited");
     return errorResponse(502, "generation_failed");
   }
 }

@@ -19,6 +19,7 @@ export const CATALOG_MAX = 4500;
 export const MAG_LIMIT = 7;
 export const ANCHOR_MAG = 3.5;
 export const GENERATION_ATTEMPT_MS = 16000;
+export const MASK_SIZE = 48;
 export const DRAG_RADIANS_PER_PIXEL = 0.005;
 
 export const ORION_FALLBACK_IDS = {

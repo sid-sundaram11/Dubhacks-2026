@@ -27,6 +27,7 @@ export interface SkyViewHandle {
   zoomBy: (degrees: number) => void;
   getProjected: () => ProjectedStar[];
   getSize: () => { width: number; height: number };
+  getFov: () => number;
   capturePng: (caption: ShareCaption) => Promise<string | null>;
 }
 
@@ -124,6 +125,7 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
     zoomBy: (degrees) => sky.zoomBy(degrees),
     getProjected: () => projectedRef.current.map((star) => ({ ...star })),
     getSize: () => ({ ...layoutRef.current }),
+    getFov: () => sky.getAim().fov,
     capturePng: async (caption) => {
       captionRef.current = caption;
       renderFrameRef.current();

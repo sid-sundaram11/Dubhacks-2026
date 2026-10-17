@@ -15,6 +15,7 @@ export async function requestDrawing(body: DrawingRequest): Promise<DrawingRespo
       signal: controller.signal,
     });
     const payload: unknown = await response.json();
+    if (response.status === 429) throw new Error("rate_limited");
     if (!response.ok) throw new Error("generation_failed");
     const parsed = drawingResponseSchema.safeParse(payload);
     if (!parsed.success) throw new Error("invalid_response");

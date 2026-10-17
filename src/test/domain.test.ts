@@ -3,14 +3,13 @@ import { resolve } from "node:path";
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { appReducer, initialAppState } from "../shell/appReducer";
-import { ORION_FALLBACK_IDS } from "../domain/constants";
+import { FOV_MAX, FOV_MIN, ORION_FALLBACK_IDS } from "../domain/constants";
 import { celestialToCartesian } from "../features/catalog/celestialCoordinates";
 import { displayName } from "../features/catalog/displayName";
 import { reduceCatalog } from "../features/catalog/reduceCatalog";
 import { revealedSegments } from "../features/constellation/animation";
-import { selectCandidates, type ProjectedStar } from "../features/constellation/candidateSelection";
+import { frameCoordinate, minZoomFraction, selectCandidates, selectMinZoomCandidates, type ProjectedStar } from "../features/constellation/candidateSelection";
 import { createConstellation } from "../features/constellation/createConstellation";
-import { fallbackForPrompt, ORION_FALLBACK_SEGMENTS } from "../features/constellation/fallbackShapes";
 import { snapStrokesToStars, type SnapStar } from "../features/constellation/snapStrokesToStars";
 import { drawingRequestSchema, drawingResponseSchema } from "../features/generation/generationSchemas";
 import { layoutText } from "../features/share/bitmapFont";
@@ -155,20 +154,22 @@ describe("candidates and snapping", () => {
 });
 
 describe("generation contract", () => {
-  it("rejects malformed prompts and accepts a one-sentence drawing", () => {
-    const stars = Array.from({ length: 40 }, (_, index) => ({ id: index + 1, x: 0.2, y: 0.2, brightness: 0.5 }));
-    expect(drawingRequestSchema.safeParse({ prompt: "   ", stars }).success).toBe(false);
-    expect(drawingRequestSchema.safeParse({ prompt: "Dragon", stars, model: "other" }).success).toBe(false);
-    const duplicate = drawingRequestSchema.safeParse({
-      prompt: "Dragon",
-      stars: stars.map((star) => ({ ...star, id: 1 })),
-    });
-    expect(duplicate.success).toBe(false);
+  it("rejects a missing photo and accepts a one-sentence drawing", () => {
+    const image = { mimeType: "image/jpeg" as const, data: Buffer.from("constellation-photo").toString("base64") };
+    expect(drawingRequestSchema.safeParse({}).success).toBe(false);
+    expect(drawingRequestSchema.safeParse({ image, model: "other" }).success).toBe(false);
+    expect(drawingRequestSchema.safeParse({ image }).success).toBe(true);
+    const fourEdges = Array.from({ length: 4 }, (_, index) => ({
+      points: [
+        { x: 0.2, y: 0.2 + index * 0.1 },
+        { x: 0.8, y: 0.3 + index * 0.1 },
+      ],
+    }));
     expect(
       drawingResponseSchema.safeParse({
         name: "Raised Dragon",
         story: "A dragon lifts its wings.",
-        strokes: [{ points: [{ x: 0.2, y: 0.2 }, { x: 0.3, y: 0.3 }, { x: 0.4, y: 0.4 }, { x: 0.5, y: 0.5 }, { x: 0.6, y: 0.6 }, { x: 0.7, y: 0.7 }, { x: 0.8, y: 0.5 }] }],
+        strokes: fourEdges,
       }).success,
     ).toBe(true);
     expect(
@@ -182,43 +183,70 @@ describe("generation contract", () => {
 });
 
 describe("constellation creation", () => {
-  it("snaps a valid model response and falls back after two failures", async () => {
-    const template = fallbackForPrompt("heart");
-    const points = template.strokes[0]!.points;
+  const image = { mimeType: "image/jpeg" as const, data: Buffer.from("heart-photo").toString("base64") };
+  const strokes = [
+    {
+      points: [
+        { x: 0.2, y: 0.2 },
+        { x: 0.35, y: 0.35 },
+        { x: 0.5, y: 0.5 },
+        { x: 0.65, y: 0.35 },
+        { x: 0.8, y: 0.2 },
+      ],
+    },
+  ];
+
+  it("snaps a valid model response and reports failure instead of a stand-in shape", async () => {
+    const points = strokes[0]!.points;
     const candidates: SnapStar[] = Array.from({ length: 40 }, (_, index) => {
       const point = points[index % points.length]!;
       return { id: index + 1, x: point.x, y: point.y, brightness: index < points.length ? 1 : 0.2, magnitude: index };
     });
     const created = await createConstellation({
-      prompt: "a heart",
+      image,
       candidates,
-      request: async () => ({ name: "Bright Heart", story: "A heart hangs in the stars.", strokes: template.strokes }),
+      request: async () => ({ name: "Bright Heart", story: "A heart hangs in the stars.", strokes }),
     });
     expect(created.kind).toBe("constellation");
     if (created.kind === "constellation") {
       expect(created.constellation.source).toBe("gemini");
       expect(created.constellation.segments.length).toBeGreaterThanOrEqual(4);
-      expect(created.resetSky).toBe(false);
     }
 
-    const offline = await createConstellation({
-      prompt: "a heart",
+    const failed = await createConstellation({
+      image,
       candidates: Array.from({ length: 40 }, (_, index) => ({ id: index + 1, x: 0, y: 0, brightness: 0.2, magnitude: 5 })),
       request: async () => {
         throw new Error("down");
       },
     });
-    expect(offline.kind).toBe("constellation");
-    if (offline.kind === "constellation") {
-      expect(offline.offline).toBe(true);
-      expect(offline.resetSky).toBe(true);
-      expect(offline.constellation.segments).toEqual(ORION_FALLBACK_SEGMENTS);
-    }
+    expect(failed.kind).toBe("failed");
+
+    const unreachable = await createConstellation({
+      image,
+      candidates,
+      request: async () => {
+        throw new Error("fetch failed: Could not connect to the server.");
+      },
+    });
+    expect(unreachable.kind).toBe("unreachable");
+
+    let calls = 0;
+    const limited = await createConstellation({
+      image,
+      candidates,
+      request: async () => {
+        calls += 1;
+        throw new Error("rate_limited");
+      },
+    });
+    expect(limited.kind).toBe("rate-limited");
+    expect(calls).toBe(1);
   });
 
   it("asks for a wider view when fewer than 40 stars are available", async () => {
     const result = await createConstellation({
-      prompt: "Dragon",
+      image,
       candidates: [],
       request: async () => {
         throw new Error("should not be called");
@@ -248,12 +276,49 @@ describe("editor", () => {
   });
 });
 
-describe("animation and fallback prompts", () => {
+describe("animation", () => {
   it("shows every segment immediately when motion is reduced", () => {
     expect(revealedSegments(0, 6, true)).toBe(6);
     expect(revealedSegments(0, 6, false)).toBe(0);
-    expect(fallbackForPrompt("a dragon with raised wings").name).toBe("Raised Dragon");
-    expect(fallbackForPrompt("paper crane").name).toBe("Four-Point Star");
+  });
+});
+
+describe("min zoom frame", () => {
+  function projected(id: number, nx: number, ny: number): ProjectedStar {
+    return {
+      id,
+      x: nx * 400,
+      y: ny * 400,
+      normalizedX: nx,
+      normalizedY: ny,
+      inFront: true,
+      onScreen: true,
+      magnitude: 1,
+      brightness: 1,
+      isNamed: false,
+    };
+  }
+
+  it("keeps the full view at max zoom and the centered window when zoomed out", () => {
+    expect(minZoomFraction(FOV_MIN)).toBeCloseTo(1);
+    expect(frameCoordinate(0.1, FOV_MIN)).toBeCloseTo(0.1);
+    const fraction = minZoomFraction(FOV_MAX);
+    const origin = (1 - fraction) / 2;
+    expect(frameCoordinate(0.5, FOV_MAX)).toBeCloseTo(0.5);
+    expect(frameCoordinate(origin, FOV_MAX)).toBeCloseTo(0);
+    expect(frameCoordinate(origin + fraction, FOV_MAX)).toBeCloseTo(1);
+    expect(frameCoordinate(origin - 0.02, FOV_MAX)).toBeNull();
+
+    const stars = [
+      projected(1, 0.5, 0.5),
+      projected(2, origin, origin),
+      projected(3, origin - 0.02, origin),
+    ];
+    const wide = selectMinZoomCandidates(stars, 400, 400, FOV_MAX).map((star) => star.id);
+    expect(wide).toEqual(expect.arrayContaining([1, 2]));
+    expect(wide).not.toContain(3);
+    const close = selectMinZoomCandidates([projected(3, 0.1, 0.1)], 400, 400, FOV_MIN);
+    expect(close.map((star) => star.id)).toEqual([3]);
   });
 });
 

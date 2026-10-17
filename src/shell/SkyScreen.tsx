@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ComponentRef } from "react";
-import { AccessibilityInfo, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, Linking, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createAnalytics } from "../domain/analytics";
+import { INITIAL_FOV } from "../domain/constants";
 import { appReducer, initialAppState } from "./appReducer";
 import { ActionBar } from "../components/ActionBar";
 import { ConstellationCard } from "../components/ConstellationCard";
@@ -12,9 +13,10 @@ import { StarDetails } from "../components/StarDetails";
 import { loadBundledCatalog } from "../features/catalog/catalogLoader";
 import { displayName } from "../features/catalog/displayName";
 import { revealedSegments } from "../features/constellation/animation";
-import { selectCandidates } from "../features/constellation/candidateSelection";
+import { selectMinZoomCandidates } from "../features/constellation/candidateSelection";
 import { createConstellation } from "../features/constellation/createConstellation";
 import { requestDrawing } from "../features/generation/generationClient";
+import { pickSubjectPhoto, type PickedSubject } from "../features/generation/pickSubjectPhoto";
 import { sharePng } from "../features/share/exportPng";
 import { SkyView, type SkyViewHandle } from "../features/starfield/SkyView";
 
@@ -25,7 +27,7 @@ export function SkyScreen() {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [compactSky, setCompactSky] = useState(false);
-  const pendingPromptRef = useRef<string | null>(null);
+  const [photo, setPhoto] = useState<PickedSubject | null>(null);
   const dockHeight = Math.min(360, (height - insets.top - insets.bottom) * 0.44);
   const stars = useMemo(() => loadBundledCatalog(), []);
   const byId = useMemo(() => new Map(stars.map((star) => [star.id, star])), [stars]);
@@ -67,17 +69,16 @@ export function SkyScreen() {
     return () => cancelAnimationFrame(frame);
   }, [reducedMotion, state.constellation, state.edited]);
 
-  const generate = (prompt: string) => {
-    const trimmed = prompt.trim();
-    if (!trimmed || state.skyLocked) return;
-    dispatch({ type: "set_prompt", prompt: trimmed });
+  const generate = () => {
+    if (!photo || state.skyLocked) return;
     const projected = skyRef.current?.getProjected() ?? [];
     const size = skyRef.current?.getSize() ?? { width: 1, height: 1 };
-    const candidates = selectCandidates(projected, size.width, size.height);
+    const fov = skyRef.current?.getFov() ?? INITIAL_FOV;
+    const candidates = selectMinZoomCandidates(projected, size.width, size.height, fov);
     dispatch({ type: "generation_started" });
     analytics.track({ name: "generation_started", at: Date.now() });
     void createConstellation({
-      prompt: trimmed,
+      image: photo.image,
       candidates,
       request: requestDrawing,
     }).then((result) => {
@@ -85,37 +86,34 @@ export function SkyScreen() {
         dispatch({ type: "generation_needs_zoom" });
         return;
       }
-      if (result.resetSky) skyRef.current?.reset();
-      if (result.offline) analytics.track({ name: "generation_fallback_used", at: Date.now() });
-      else analytics.track({ name: "generation_completed", at: Date.now() });
-      dispatch({ type: "generation_finished", constellation: result.constellation, offline: result.offline });
+      if (result.kind === "unreachable") {
+        dispatch({ type: "generation_unreachable" });
+        return;
+      }
+      if (result.kind === "rate-limited") {
+        dispatch({ type: "generation_rate_limited" });
+        return;
+      }
+      if (result.kind === "failed") {
+        dispatch({ type: "generation_failed" });
+        return;
+      }
+      analytics.track({ name: "generation_completed", at: Date.now() });
+      dispatch({ type: "generation_finished", constellation: result.constellation });
     });
   };
 
-  const generateRef = useRef(generate);
-  generateRef.current = generate;
-  useEffect(() => {
-    let frame = 0;
-    const subscription = Keyboard.addListener("keyboardDidHide", () => {
-      const prompt = pendingPromptRef.current;
-      pendingPromptRef.current = null;
-      if (prompt != null) frame = requestAnimationFrame(() => generateRef.current(prompt));
+  const choosePhoto = () => {
+    if (state.skyLocked) return;
+    void pickSubjectPhoto().then((result) => {
+      if (result === "denied") {
+        dispatch({ type: "set_status", message: "Photo library access is needed to choose a subject." });
+        return;
+      }
+      if (result === "canceled") return;
+      setShareMessage(null);
+      setPhoto(result);
     });
-    return () => {
-      subscription.remove();
-      cancelAnimationFrame(frame);
-    };
-  }, []);
-
-  const submitGeneration = (prompt: string) => {
-    if (state.skyLocked || !prompt.trim()) return;
-    // Capture candidate positions only after the sky returns to its full viewport.
-    if (Keyboard.isVisible()) {
-      pendingPromptRef.current = prompt;
-      Keyboard.dismiss();
-    } else {
-      generate(prompt);
-    }
   };
 
   const selected = state.selectedStarId != null ? byId.get(state.selectedStarId) : undefined;
@@ -142,10 +140,7 @@ export function SkyScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.screen, { paddingTop: insets.top }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>A LITTLE WONDER, ABOVE US</Text>
         <Text accessibilityRole="header" style={styles.title}>Constellations</Text>
@@ -202,13 +197,10 @@ export function SkyScreen() {
             />
           ) : null}
           <GenerationPanel
-            prompt={state.prompt}
+            imageUri={photo?.previewUri ?? null}
             running={state.generationStatus === "running"}
-            onPromptChange={(prompt) => {
-              setShareMessage(null);
-              dispatch({ type: "set_prompt", prompt });
-            }}
-            onGenerate={submitGeneration}
+            onPick={choosePhoto}
+            onGenerate={generate}
           />
           <View style={styles.tools}>
             <ActionBar
@@ -223,7 +215,13 @@ export function SkyScreen() {
               onClear={() => dispatch({ type: "request_clear" })}
               onConfirmClear={() => dispatch({ type: "confirm_clear" })}
               onCancelClear={() => dispatch({ type: "cancel_clear" })}
-              onRegenerate={() => submitGeneration(state.prompt || "Dragon")}
+              onRegenerate={() => {
+                if (!photo) {
+                  dispatch({ type: "set_status", message: "Choose a photo to draw a constellation." });
+                  return;
+                }
+                generate();
+              }}
               onShare={() => void share()}
             />
           </View>
@@ -237,7 +235,7 @@ export function SkyScreen() {
           </Pressable>
         </ScrollView>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
