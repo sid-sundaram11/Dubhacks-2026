@@ -1,0 +1,5 @@
+{
+  "name": "AI Constellation Creator",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh"
+}
