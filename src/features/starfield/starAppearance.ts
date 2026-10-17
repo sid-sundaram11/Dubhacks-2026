@@ -4,10 +4,10 @@ export function magnitudeToBrightness(magnitude: number): number {
   return clamp((7.2 - magnitude) / (7.2 - -1.46), 0, 1);
 }
 
-export function magnitudeToSize(magnitude: number, pixelRatio: number, named: boolean): number {
+export function magnitudeToSize(magnitude: number, pixelRatio: number, _named = false): number {
   const brightness = magnitudeToBrightness(magnitude);
-  const emphasis = named || magnitude <= 1.5 ? 1.28 : 1;
-  return (2.4 + Math.sqrt(brightness) * 8.5) * emphasis * pixelRatio;
+  // Apparent magnitude controls size, independent of whether a star has a name.
+  return (1.15 + Math.pow(brightness, 1.6) * 2.85) * pixelRatio;
 }
 
 export function colorFromIndex(colorIndex: number | null): [number, number, number] {

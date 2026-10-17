@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { AccessibilityInfo, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useReducer, useRef, useState, type ComponentRef } from "react";
+import { AccessibilityInfo, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createAnalytics } from "../domain/analytics";
 import { appReducer, initialAppState } from "./appReducer";
 import { ActionBar } from "../components/ActionBar";
 import { ConstellationCard } from "../components/ConstellationCard";
 import { GenerationPanel } from "../components/GenerationPanel";
+import { ControlButton } from "../components/ControlButton";
+import { palette, serif } from "../theme";
 import { StarDetails } from "../components/StarDetails";
 import { loadBundledCatalog } from "../features/catalog/catalogLoader";
 import { displayName } from "../features/catalog/displayName";
@@ -21,12 +23,23 @@ const HYG_URL = "https://github.com/astronexus/HYG-Database";
 
 export function SkyScreen() {
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const [compactSky, setCompactSky] = useState(false);
+  const pendingPromptRef = useRef<string | null>(null);
+  const dockHeight = Math.min(360, (height - insets.top - insets.bottom) * 0.44);
   const stars = useMemo(() => loadBundledCatalog(), []);
   const byId = useMemo(() => new Map(stars.map((star) => [star.id, star])), [stars]);
   const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
   const [reveal, setReveal] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
   const skyRef = useRef<SkyViewHandle>(null);
+  const dockRef = useRef<ComponentRef<typeof ScrollView>>(null);
+
+  useEffect(() => {
+    dockRef.current?.scrollTo({ y: 0, animated: false });
+  }, [state.constellation?.id, state.selectedStarId]);
 
   useEffect(() => {
     analytics.track({ name: "app_opened", at: Date.now() });
@@ -79,107 +92,170 @@ export function SkyScreen() {
     });
   };
 
+  const generateRef = useRef(generate);
+  generateRef.current = generate;
+  useEffect(() => {
+    let frame = 0;
+    const subscription = Keyboard.addListener("keyboardDidHide", () => {
+      const prompt = pendingPromptRef.current;
+      pendingPromptRef.current = null;
+      if (prompt != null) frame = requestAnimationFrame(() => generateRef.current(prompt));
+    });
+    return () => {
+      subscription.remove();
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  const submitGeneration = (prompt: string) => {
+    if (state.skyLocked || !prompt.trim()) return;
+    // Capture candidate positions only after the sky returns to its full viewport.
+    if (Keyboard.isVisible()) {
+      pendingPromptRef.current = prompt;
+      Keyboard.dismiss();
+    } else {
+      generate(prompt);
+    }
+  };
+
   const selected = state.selectedStarId != null ? byId.get(state.selectedStarId) : undefined;
   const revealValue = state.edited || state.constellation?.source === "manual" ? (state.constellation?.segments.length ?? 0) : reveal;
 
+  const share = async () => {
+    if (!state.constellation || sharing) return;
+    setSharing(true);
+    setShareMessage(null);
+    try {
+      const uri = await skyRef.current?.capturePng({
+        name: state.constellation.name,
+        story: state.constellation.story,
+        attribution: "Stars from the HYG Database v4.2. Made with Constellations.",
+      });
+      if (!uri) throw new Error("Snapshot unavailable");
+      analytics.track({ name: "share_exported", at: Date.now() });
+      if (!(await sharePng(uri))) setShareMessage("Sharing isn’t available on this device.");
+    } catch {
+      setShareMessage("Couldn’t share this sky. Please try again.");
+    } finally {
+      setSharing(false);
+    }
+  };
+
   return (
-    <View style={styles.screen}>
-      <SkyView
-        ref={skyRef}
-        stars={stars}
-        segments={state.constellation?.segments ?? []}
-        reveal={revealValue}
-        selectedStarId={state.selectedStarId}
-        interactionEnabled={!state.skyLocked}
-        onSelectStar={(id) => {
-          const before = state.constellation?.segments.length ?? 0;
-          dispatch({ type: "select_star", id });
-          if (state.mode === "manual" && state.pathStarId != null && state.pathStarId !== id) {
-            analytics.track({ name: "manual_segment_added", at: Date.now(), detail: { before } });
-          }
-        }}
-      />
-      <View pointerEvents="box-none" style={[styles.overlay, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 8 }]}>
-        <View pointerEvents="none">
-          <Text style={styles.title}>AI Constellation Creator</Text>
-          <Text style={styles.subtitle}>A window into the fixed stars. Drag to look, pinch to zoom.</Text>
-        </View>
-        <Text accessibilityLiveRegion="polite" style={styles.live}>
-          {state.statusMessage}
-        </Text>
-        {selected ? (
-          <StarDetails
-            id={selected.id}
-            name={displayName(selected)}
-            magnitude={selected.magnitude}
-            constellation={selected.constellation}
-            designation={selected.designation}
-            onClose={() => dispatch({ type: "clear_selection" })}
-          />
-        ) : null}
-        <View pointerEvents="none" style={styles.spacer} />
-        {state.constellation ? (
-          <ConstellationCard
-            name={state.constellation.name}
-            story={state.constellation.story}
-            source={state.constellation.source}
-            edited={state.edited}
-          />
-        ) : null}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actions}>
-          <ActionBar
-            canUndo={(state.constellation?.segments.length ?? 0) > 0}
-            canClear={(state.constellation?.segments.length ?? 0) > 0}
-            manualMode={state.mode === "manual"}
-            confirmClear={state.confirmClear}
-            hasConstellation={state.constellation != null}
-            onUndo={() => dispatch({ type: "undo" })}
-            onToggleManual={() => dispatch({ type: "toggle_manual" })}
-            onClear={() => dispatch({ type: "request_clear" })}
-            onConfirmClear={() => dispatch({ type: "confirm_clear" })}
-            onCancelClear={() => dispatch({ type: "cancel_clear" })}
-            onRegenerate={() => generate(state.prompt || "Dragon")}
-            onShare={() => {
-              const constellation = state.constellation;
-              if (!constellation) return;
-              void skyRef.current
-                ?.capturePng({
-                  name: constellation.name,
-                  story: constellation.story,
-                  attribution: "Stars from the HYG Database v4.2. Made with AI Constellation Creator.",
-                })
-                .then(async (uri) => {
-                  if (!uri) return;
-                  analytics.track({ name: "share_exported", at: Date.now() });
-                  await sharePng(uri);
-                });
-            }}
-            onZoomIn={() => skyRef.current?.zoomBy(-8)}
-            onZoomOut={() => skyRef.current?.zoomBy(8)}
-            onReset={() => skyRef.current?.reset()}
-          />
-        </ScrollView>
-        <GenerationPanel
-          prompt={state.prompt}
-          running={state.generationStatus === "running"}
-          onPromptChange={(prompt) => dispatch({ type: "set_prompt", prompt })}
-          onGenerate={generate}
-        />
-        <Pressable accessibilityRole="link" accessibilityLabel="HYG Database attribution" onPress={() => void Linking.openURL(HYG_URL)}>
-          <Text style={styles.attribution}>Stars from the HYG Database v4.2</Text>
-        </Pressable>
+    <KeyboardAvoidingView
+      style={[styles.screen, { paddingTop: insets.top }]}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>A LITTLE WONDER, ABOVE US</Text>
+        <Text accessibilityRole="header" style={styles.title}>Constellations</Text>
       </View>
-    </View>
+      <View style={styles.sky} onLayout={(event) => setCompactSky(event.nativeEvent.layout.height < 190)}>
+        <SkyView
+          ref={skyRef}
+          stars={stars}
+          segments={state.constellation?.segments ?? []}
+          reveal={revealValue}
+          selectedStarId={state.selectedStarId}
+          interactionEnabled={!state.skyLocked}
+          onSelectStar={(id) => {
+            const before = state.constellation?.segments.length ?? 0;
+            dispatch({ type: "select_star", id });
+            if (state.mode === "manual" && state.pathStarId != null && state.pathStarId !== id) {
+              analytics.track({ name: "manual_segment_added", at: Date.now(), detail: { before } });
+            }
+          }}
+        />
+        <View style={[styles.navigation, compactSky && styles.compactNavigation]}>
+          <ControlButton label="Zoom in" symbol="+" disabled={state.skyLocked} onPress={() => skyRef.current?.zoomBy(-8)} />
+          <ControlButton label="Zoom out" symbol="−" disabled={state.skyLocked} onPress={() => skyRef.current?.zoomBy(8)} />
+          <ControlButton label="Reset view" symbol="↺" disabled={state.skyLocked} onPress={() => skyRef.current?.reset()} />
+        </View>
+        <View pointerEvents="none" style={styles.skyCaption}>
+          <Text style={styles.skyHint}>{state.mode === "manual" ? "Tap two stars to draw a line" : "Drag to explore  ·  Pinch to zoom"}</Text>
+        </View>
+      </View>
+      <View style={[styles.dock, { height: dockHeight, paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <ScrollView
+          ref={dockRef}
+          style={styles.dockScroll}
+          contentContainerStyle={styles.dockContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {selected ? (
+            <StarDetails
+              id={selected.id}
+              name={displayName(selected)}
+              magnitude={selected.magnitude}
+              constellation={selected.constellation}
+              designation={selected.designation}
+              onClose={() => dispatch({ type: "clear_selection" })}
+            />
+          ) : null}
+          {state.constellation ? (
+            <ConstellationCard
+              name={state.constellation.name}
+              story={state.constellation.story}
+              source={state.constellation.source}
+              edited={state.edited}
+            />
+          ) : null}
+          <GenerationPanel
+            prompt={state.prompt}
+            running={state.generationStatus === "running"}
+            onPromptChange={(prompt) => {
+              setShareMessage(null);
+              dispatch({ type: "set_prompt", prompt });
+            }}
+            onGenerate={submitGeneration}
+          />
+          <View style={styles.tools}>
+            <ActionBar
+              canUndo={(state.constellation?.segments.length ?? 0) > 0}
+              canClear={(state.constellation?.segments.length ?? 0) > 0}
+              manualMode={state.mode === "manual"}
+              confirmClear={state.confirmClear}
+              hasConstellation={state.constellation != null}
+              disabled={state.skyLocked || sharing}
+              onUndo={() => dispatch({ type: "undo" })}
+              onToggleManual={() => dispatch({ type: "toggle_manual" })}
+              onClear={() => dispatch({ type: "request_clear" })}
+              onConfirmClear={() => dispatch({ type: "confirm_clear" })}
+              onCancelClear={() => dispatch({ type: "cancel_clear" })}
+              onRegenerate={() => submitGeneration(state.prompt || "Dragon")}
+              onShare={() => void share()}
+            />
+          </View>
+          {shareMessage || sharing || state.statusMessage !== initialAppState.statusMessage ? (
+            <Text selectable accessibilityLiveRegion="polite" style={styles.live}>
+              {shareMessage ?? (sharing ? "Preparing your sky…" : state.statusMessage)}
+            </Text>
+          ) : null}
+          <Pressable accessibilityRole="link" accessibilityLabel="HYG Database attribution" onPress={() => void Linking.openURL(HYG_URL)} style={styles.attributionLink}>
+            <Text style={styles.attribution}>Mapped with the HYG star catalog</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#070814" },
-  overlay: { ...StyleSheet.absoluteFill, paddingHorizontal: 12, gap: 8 },
-  title: { color: "#f7f3ea", fontSize: 22, fontWeight: "700" },
-  subtitle: { color: "#c9d2e4", fontSize: 13 },
-  live: { color: "#f0c27a", minHeight: 18 },
-  spacer: { flex: 1 },
-  actions: { alignItems: "center" },
-  attribution: { color: "#9aa6bf", fontSize: 12, textDecorationLine: "underline" },
+  screen: { flex: 1, backgroundColor: palette.sky },
+  header: { paddingHorizontal: 24, paddingTop: 14, paddingBottom: 20, gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: palette.border },
+  eyebrow: { fontFamily: serif, color: palette.muted, fontSize: 10, letterSpacing: 2.4 },
+  title: { fontFamily: serif, color: palette.text, fontSize: 38, letterSpacing: -1 },
+  sky: { flex: 1, minHeight: 100, overflow: "hidden" },
+  navigation: { position: "absolute", top: 16, right: 16, gap: 8 },
+  compactNavigation: { flexDirection: "row" },
+  skyCaption: { position: "absolute", left: 16, right: 16, bottom: 12, alignItems: "center" },
+  skyHint: { fontFamily: serif, color: palette.muted, fontSize: 13, backgroundColor: palette.sky, paddingHorizontal: 10, paddingVertical: 4 },
+  dock: { flexShrink: 1, backgroundColor: palette.surface, borderTopWidth: 1, borderTopColor: palette.border },
+  dockScroll: { flexGrow: 0, flexShrink: 1 },
+  dockContent: { paddingHorizontal: 20, paddingTop: 20, gap: 16, width: "100%", maxWidth: 680, alignSelf: "center" },
+  tools: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: palette.border, paddingTop: 14 },
+  live: { fontFamily: serif, color: palette.accent, fontSize: 15, lineHeight: 21 },
+  attributionLink: { minHeight: 44, alignItems: "center", justifyContent: "center" },
+  attribution: { fontFamily: serif, color: palette.muted, fontSize: 12 },
 });

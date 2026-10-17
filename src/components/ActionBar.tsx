@@ -1,4 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { palette, serif } from "../theme";
+import { ControlButton } from "./ControlButton";
 
 interface ActionBarProps {
   canUndo: boolean;
@@ -6,6 +8,7 @@ interface ActionBarProps {
   manualMode: boolean;
   confirmClear: boolean;
   hasConstellation: boolean;
+  disabled: boolean;
   onUndo: () => void;
   onToggleManual: () => void;
   onClear: () => void;
@@ -13,58 +16,34 @@ interface ActionBarProps {
   onCancelClear: () => void;
   onRegenerate: () => void;
   onShare: () => void;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onReset: () => void;
-}
-
-function Button({ label, onPress, disabled = false }: { label: string; onPress: () => void; disabled?: boolean }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      disabled={disabled}
-      onPress={onPress}
-      style={[styles.button, disabled && styles.disabled]}
-    >
-      <Text style={styles.text}>{label}</Text>
-    </Pressable>
-  );
 }
 
 export function ActionBar(props: ActionBarProps) {
   return (
-    <View style={styles.row}>
-      <Button label="Zoom in" onPress={props.onZoomIn} />
-      <Button label="Zoom out" onPress={props.onZoomOut} />
-      <Button label="Reset view" onPress={props.onReset} />
-      <Button label={props.manualMode ? "Done drawing" : "Draw"} onPress={props.onToggleManual} />
-      <Button label="Undo" onPress={props.onUndo} disabled={!props.canUndo} />
+    <View style={styles.container}>
+      <View style={styles.row}>
+        <ControlButton label={props.manualMode ? "Done drawing" : "Draw by hand"} selected={props.manualMode} onPress={props.onToggleManual} disabled={props.disabled} />
+        {props.hasConstellation || props.manualMode ? <ControlButton label="Undo" onPress={props.onUndo} disabled={props.disabled || !props.canUndo} /> : null}
+        {props.hasConstellation ? <ControlButton label="Clear" onPress={props.onClear} disabled={props.disabled || !props.canClear} /> : null}
+        {props.hasConstellation ? <ControlButton label="Regenerate" onPress={props.onRegenerate} disabled={props.disabled} /> : null}
+        {props.hasConstellation ? <ControlButton label="Share" onPress={props.onShare} disabled={props.disabled} /> : null}
+      </View>
       {props.confirmClear ? (
-        <>
-          <Button label="Confirm clear" onPress={props.onConfirmClear} />
-          <Button label="Cancel clear" onPress={props.onCancelClear} />
-        </>
-      ) : (
-        <Button label="Clear" onPress={props.onClear} disabled={!props.canClear} />
-      )}
-      <Button label="Regenerate" onPress={props.onRegenerate} disabled={!props.hasConstellation} />
-      <Button label="Share" onPress={props.onShare} disabled={!props.hasConstellation} />
+        <View accessibilityViewIsModal style={styles.confirmation}>
+          <Text style={styles.message}>Clear this constellation?</Text>
+          <View style={styles.row}>
+            <ControlButton label="Keep drawing" onPress={props.onCancelClear} />
+            <ControlButton label="Clear drawing" onPress={props.onConfirmClear} selected />
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: { gap: 12 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  button: {
-    minHeight: 44,
-    minWidth: 44,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#1c2436",
-  },
-  text: { color: "#f4f0e6", fontSize: 14 },
-  disabled: { opacity: 0.4 },
+  confirmation: { gap: 10, borderTopWidth: 1, borderColor: palette.border, paddingTop: 12 },
+  message: { fontFamily: serif, fontSize: 17, color: palette.text },
 });
