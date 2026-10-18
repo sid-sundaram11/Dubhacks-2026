@@ -57,13 +57,17 @@ export type AppAction =
   | { type: "generation_unreachable" }
   | { type: "generation_segmentation_unavailable" }
   | { type: "generation_segmentation_model_unavailable" }
+  | { type: "generation_segmentation_out_of_memory" }
+  | { type: "generation_no_subject" }
+  | { type: "generation_timeout" }
   | { type: "generation_needs_zoom" }
   | { type: "set_status"; message: string }
   | { type: "recall_constellation"; id: string }
   | { type: "undo" }
   | { type: "request_clear" }
   | { type: "confirm_clear" }
-  | { type: "cancel_clear" };
+  | { type: "cancel_clear" }
+  | { type: "select_room_constellation"; constellation: CustomConstellation };
 
 function remember(
   session: readonly SavedConstellation[],
@@ -194,6 +198,30 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         generationProbe: null,
         statusMessage: "SAM3 could not load. Accept access at Hugging Face, then set HF_TOKEN in services/sam3/.env.",
       };
+    case "generation_segmentation_out_of_memory":
+      return {
+        ...state,
+        generationStatus: "idle",
+        skyLocked: false,
+        generationProbe: null,
+        statusMessage: "SAM3 ran out of memory. Close GPU-heavy apps, restart SAM3, and try again.",
+      };
+    case "generation_no_subject":
+      return {
+        ...state,
+        generationStatus: "idle",
+        skyLocked: false,
+        generationProbe: null,
+        statusMessage: "SAM3 could not find that subject. Use a specific label and a clearer photo.",
+      };
+    case "generation_timeout":
+      return {
+        ...state,
+        generationStatus: "idle",
+        skyLocked: false,
+        generationProbe: null,
+        statusMessage: "SAM3 took too long. Keep it running for a warm retry or use a smaller photo.",
+      };
     case "recall_constellation": {
       const saved = state.sessionConstellations.find((item) => item.constellation.id === action.id);
       if (!saved) return state;
@@ -248,6 +276,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
     case "cancel_clear":
       return { ...state, confirmClear: false, statusMessage: state.constellation?.name ?? initialAppState.statusMessage };
+    case "select_room_constellation":
+      return {
+        ...state,
+        constellation: action.constellation,
+        edited: false,
+        pathStarId: null,
+        confirmClear: false,
+        selectedStarId: null,
+        generationProbe: null,
+        inputPhotoUri: null,
+        statusMessage: action.constellation.name,
+      };
     default:
       return state;
   }

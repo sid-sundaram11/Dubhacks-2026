@@ -1,13 +1,29 @@
 # AI Constellation Creator
 
-Expo SDK 58 single-screen app. The product is one celestial view, not Expo Router and not a web PWA.
+Expo SDK 58 **single-screen** app. One celestial view—not Expo Router, not a web PWA.
 
-The sky is a dark J2000 star sphere. Do not add a camera preview, ARKit, ARCore, or a camera texture. Do not subscribe to the gyroscope in this version.
+## Hard constraints
 
-`SkyController` in `src/features/starfield/skyController.ts` is the only sky aim. Touch writes its quaternion today. A later device-attitude source may call `setAim` and must not introduce a second rotation path.
+- The sky is a dark **J2000 HYG star sphere**. No camera preview, ARKit, ARCore, or camera texture. No gyroscope subscription in this version.
+- **`SkyController`** (`src/features/starfield/skyController.ts`) is the **only** sky aim. Touch writes its quaternion today. A later device-attitude source may call `setAim` and must **not** introduce a second rotation path.
+- Constellation segments are **HYG id pairs**; screen position is always derived from the catalog + aim.
+- **SAM3** runs in `services/sam3/` (port **8790**). Node calls it via **`SAM3_URL`** in root `.env.local`. Hugging Face credentials stay in **`services/sam3/.env` only**—never in the Expo app or `EXPO_PUBLIC_*`.
+- Do not commit `hygdata_v42.csv` or `.env.local`.
 
-SAM3 runs in `services/sam3/` (port 8790). The Node server calls it via `SAM3_URL`. Hugging Face credentials stay in `services/sam3/.env` only, never in the Expo app or `EXPO_PUBLIC_` variables.
+## Current architecture (summary)
 
-Constellation segments are HYG id pairs. Screen position is derived.
+Photo → Node `POST /api/generate-constellation` → SAM3 mask → **`MASK_SIZE` 96** grid (`src/domain/constants.ts`) → skeleton → strokes → client **snap to visible stars** → render lines on the sphere.
 
-Do not commit `hygdata_v42.csv` or `.env.local`.
+Generation returns optional **`stages`** (pipeline PNGs) and **`debug`** (structured trace). UI shows session history, a generation trace panel, bottom stage thumbnails, and tap-to-toggle **subject cutout** overlay on the constellation.
+
+Full file map, pipeline stages, and snapping rules: **[docs/agent-context.md](docs/agent-context.md)**.
+
+## Local run
+
+```bash
+npm run server          # 8787 — needs SAM3_URL in .env.local
+# services/sam3 on 8790 — see services/sam3/README.md
+npx expo start
+```
+
+Details: [docs/sam3-dev.md](docs/sam3-dev.md).

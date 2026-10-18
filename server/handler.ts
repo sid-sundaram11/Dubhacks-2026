@@ -54,7 +54,7 @@ export async function handleGenerateConstellation(
     const segmented = await segment(parsed.data.image, parsed.data.prompt);
     const { name, story, mask, foundPng, maskPng, sam3 } = segmented;
     const strokes = strokesFromMask(mask);
-    const stages = buildPipelineStagePngs(mask, foundPng, maskPng);
+    const stages = buildPipelineStagePngs(mask, foundPng, maskPng, strokes ?? undefined);
     const drawing = drawingResponseSchema.safeParse({
       name: name.trim(),
       story: story.trim(),
@@ -83,6 +83,8 @@ export async function handleGenerateConstellation(
     if (error instanceof SegmentSubjectError) {
       if (error.kind === "unavailable") return errorResponse(503, "segmentation_unavailable");
       if (error.kind === "model_unavailable") return errorResponse(503, "segmentation_model_unavailable");
+      if (error.kind === "out_of_memory") return errorResponse(503, "segmentation_out_of_memory");
+      if (error.kind === "no_subject") return errorResponse(422, "no_subject");
       return errorResponse(502, "generation_failed");
     }
     const name = error instanceof Error ? error.name : "";

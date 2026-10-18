@@ -32,6 +32,11 @@ function writeResponse(nodeResponse: ServerResponse, response: Response): void {
 }
 
 const server = createServer((request, nodeResponse) => {
+  if (request.method === "GET" && request.url === "/health") {
+    nodeResponse.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    nodeResponse.end(JSON.stringify({ ok: true }));
+    return;
+  }
   if (!request.url?.startsWith("/api/generate-constellation")) {
     nodeResponse.writeHead(404);
     nodeResponse.end();

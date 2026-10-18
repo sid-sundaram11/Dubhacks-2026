@@ -4,6 +4,9 @@ import { clamp } from "../src/domain/math";
 
 const MARGIN = 0;
 const FIT_RESIDUAL = 2;
+const MIN_SKELETON_EDGES = 4;
+const OUTLINE_SIMPLIFY_PIXELS = 1.5;
+const MAX_OUTLINE_POINTS = 24;
 
 interface Point {
   x: number;
@@ -16,6 +19,12 @@ interface Branch {
   endId: string;
   startEndpoint: boolean;
   endEndpoint: boolean;
+}
+
+interface BoundaryEdge {
+  start: Point;
+  end: Point;
+  direction: number;
 }
 
 export interface FittedSkeleton {
@@ -242,6 +251,138 @@ function pointsToStrokes(points: readonly Point[], width: number, height: number
   return [{ points: compact }];
 }
 
+function boundaryEdges(binary: Uint8Array, width: number, height: number): BoundaryEdge[] {
+  const edges: BoundaryEdge[] = [];
+  const filled = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < width && y < height && binary[y * width + x] === 1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (!filled(x, y)) continue;
+      if (!filled(x, y - 1)) edges.push({ start: { x, y }, end: { x: x + 1, y }, direction: 0 });
+      if (!filled(x + 1, y)) edges.push({ start: { x: x + 1, y }, end: { x: x + 1, y: y + 1 }, direction: 1 });
+      if (!filled(x, y + 1)) edges.push({ start: { x: x + 1, y: y + 1 }, end: { x, y: y + 1 }, direction: 2 });
+      if (!filled(x - 1, y)) edges.push({ start: { x, y: y + 1 }, end: { x, y }, direction: 3 });
+    }
+  }
+  return edges;
+}
+
+function polygonArea(points: readonly Point[]): number {
+  let twiceArea = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1]!;
+    const current = points[index]!;
+    twiceArea += previous.x * current.y - current.x * previous.y;
+  }
+  return Math.abs(twiceArea / 2);
+}
+
+function traceLargestBoundary(binary: Uint8Array, width: number, height: number): Point[] | null {
+  const edges = boundaryEdges(binary, width, height);
+  if (edges.length === 0) return null;
+  const outgoing = new Map<string, number[]>();
+  for (let index = 0; index < edges.length; index += 1) {
+    const key = keyOf(edges[index]!.start);
+    const group = outgoing.get(key);
+    if (group) group.push(index);
+    else outgoing.set(key, [index]);
+  }
+
+  const unused = new Set(edges.map((_, index) => index));
+  const loops: Point[][] = [];
+  while (unused.size > 0) {
+    const firstIndex = unused.values().next().value as number;
+    let edge = edges[firstIndex]!;
+    const start = edge.start;
+    const path: Point[] = [start, edge.end];
+    unused.delete(firstIndex);
+    let closed = keyOf(edge.end) === keyOf(start);
+    for (let guard = 0; !closed && guard < edges.length; guard += 1) {
+      const candidateIndexes = (outgoing.get(keyOf(edge.end)) ?? []).filter((index) => unused.has(index));
+      if (candidateIndexes.length === 0) break;
+      candidateIndexes.sort((left, right) => {
+        const leftTurn = (edges[left]!.direction - edge.direction + 4) % 4;
+        const rightTurn = (edges[right]!.direction - edge.direction + 4) % 4;
+        const priority = (turn: number) => ([1, 0, 3, 2].indexOf(turn));
+        return priority(leftTurn) - priority(rightTurn);
+      });
+      const nextIndex = candidateIndexes[0]!;
+      edge = edges[nextIndex]!;
+      unused.delete(nextIndex);
+      path.push(edge.end);
+      closed = keyOf(edge.end) === keyOf(start);
+    }
+    if (closed && path.length >= 5) loops.push(path);
+  }
+  loops.sort((left, right) => polygonArea(right) - polygonArea(left));
+  return loops[0] ?? null;
+}
+
+function distanceToSegment(point: Point, start: Point, end: Point): number {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared === 0) return Math.hypot(point.x - start.x, point.y - start.y);
+  const t = clamp(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared, 0, 1);
+  return Math.hypot(point.x - (start.x + t * dx), point.y - (start.y + t * dy));
+}
+
+function simplifyOpenPath(points: readonly Point[], tolerance: number): Point[] {
+  if (points.length <= 2) return [...points];
+  let farthestIndex = -1;
+  let farthestDistance = 0;
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const distance = distanceToSegment(points[index]!, points[0]!, points[points.length - 1]!);
+    if (distance > farthestDistance) {
+      farthestDistance = distance;
+      farthestIndex = index;
+    }
+  }
+  if (farthestIndex < 0 || farthestDistance <= tolerance) return [points[0]!, points[points.length - 1]!];
+  const left = simplifyOpenPath(points.slice(0, farthestIndex + 1), tolerance);
+  const right = simplifyOpenPath(points.slice(farthestIndex), tolerance);
+  return [...left.slice(0, -1), ...right];
+}
+
+function simplifyClosedPath(loop: readonly Point[]): Point[] {
+  const open = keyOf(loop[0]!) === keyOf(loop[loop.length - 1]!) ? loop.slice(0, -1) : [...loop];
+  if (open.length < 3) return [];
+  let oppositeIndex = 1;
+  let farthest = 0;
+  for (let index = 1; index < open.length; index += 1) {
+    const distance = Math.hypot(open[index]!.x - open[0]!.x, open[index]!.y - open[0]!.y);
+    if (distance > farthest) {
+      farthest = distance;
+      oppositeIndex = index;
+    }
+  }
+  const firstHalf = simplifyOpenPath(open.slice(0, oppositeIndex + 1), OUTLINE_SIMPLIFY_PIXELS);
+  const secondHalf = simplifyOpenPath([...open.slice(oppositeIndex), open[0]!], OUTLINE_SIMPLIFY_PIXELS);
+  let simplified = [...firstHalf.slice(0, -1), ...secondHalf.slice(0, -1)];
+  if (simplified.length > MAX_OUTLINE_POINTS) {
+    simplified = Array.from({ length: MAX_OUTLINE_POINTS }, (_, index) =>
+      simplified[Math.floor((index * simplified.length) / MAX_OUTLINE_POINTS)]!,
+    );
+  }
+  return [...simplified, simplified[0]!];
+}
+
+function outlineStroke(binary: Uint8Array, width: number, height: number): GeneratedStroke[] {
+  const boundary = traceLargestBoundary(binary, width, height);
+  if (!boundary) return [];
+  const simplified = simplifyClosedPath(boundary);
+  if (simplified.length < 4) return [];
+  const points = simplified.map((point) => ({
+    x: clamp(point.x / width, 0, 1),
+    y: clamp(point.y / height, 0, 1),
+  }));
+  return [{ points }];
+}
+
+function edgeCount(strokes: readonly GeneratedStroke[]): number {
+  return strokes.reduce((total, stroke) => total + Math.max(0, stroke.points.length - 1), 0);
+}
+
 /** Trace endpoints and junctions, drop short spurs, and replace each branch with best-fit lines. */
 export function traceFittedStrokes(binary: Uint8Array, width: number, height: number): FittedSkeleton {
   const adjacency = new Map<string, Point[]>();
@@ -393,7 +534,12 @@ export function graphFromMask(mask: readonly (readonly number[])[]): FittedSkele
 }
 
 export function strokesFromMask(mask: readonly (readonly number[])[]): GeneratedStroke[] | null {
-  const graph = graphFromMask(mask);
-  if (!graph || graph.strokes.length === 0) return null;
-  return graph.strokes;
+  if (mask.length !== MASK_SIZE || mask.some((row) => row.length !== MASK_SIZE)) return null;
+  const binary = preparedBinaryFromMask(mask);
+  if (!binary) return null;
+  const skeleton = traceFittedStrokes(skeletonize(binary, MASK_SIZE, MASK_SIZE), MASK_SIZE, MASK_SIZE).strokes;
+  if (edgeCount(skeleton) >= MIN_SKELETON_EDGES) return skeleton;
+  const outline = outlineStroke(binary, MASK_SIZE, MASK_SIZE);
+  if (outline.length > 0) return outline;
+  return skeleton.length > 0 ? skeleton : null;
 }

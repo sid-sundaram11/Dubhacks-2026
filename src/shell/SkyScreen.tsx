@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState, type ComponentRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ComponentRef } from "react";
 import { AccessibilityInfo, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createAnalytics } from "../domain/analytics";
@@ -21,6 +21,10 @@ import { requestDrawing } from "../features/generation/generationClient";
 import { pickSubjectPhoto, type PickedSubject } from "../features/generation/pickSubjectPhoto";
 import { sharePng } from "../features/share/exportPng";
 import { SkyView, type SkyViewHandle } from "../features/starfield/SkyView";
+import { RoomPanel } from "../components/RoomPanel";
+import { roomConstellationToCustom } from "../features/rooms/roomMapper";
+import { initialRoomState, roomReducer } from "../features/rooms/roomReducer";
+import { useRoom } from "../features/rooms/useRoom";
 
 const analytics = createAnalytics();
 const HYG_URL = "https://github.com/astronexus/HYG-Database";
@@ -41,6 +45,7 @@ export function SkyScreen() {
   const stars = useMemo(() => loadBundledCatalog(), []);
   const byId = useMemo(() => new Map(stars.map((star) => [star.id, star])), [stars]);
   const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const [roomState, roomDispatch] = useReducer(roomReducer, initialRoomState);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [reveal, setReveal] = useState(0);
@@ -48,6 +53,18 @@ export function SkyScreen() {
   const [showSubject, setShowSubject] = useState(false);
   const skyRef = useRef<SkyViewHandle>(null);
   const dockRef = useRef<ComponentRef<typeof ScrollView>>(null);
+
+  const onPublishFailed = useCallback(
+    (message: string) => dispatch({ type: "set_status", message }),
+    [],
+  );
+
+  const room = useRoom({
+    roomState,
+    dispatch: roomDispatch,
+    getFallbackAim: () => skyRef.current?.getAim() ?? { quaternion: [0, 0, 0, 1], fov: INITIAL_FOV },
+    onPublishFailed,
+  });
 
   useEffect(() => {
     dockRef.current?.scrollTo({ y: 0, animated: false });
@@ -116,6 +133,18 @@ export function SkyScreen() {
         dispatch({ type: "generation_segmentation_model_unavailable" });
         return;
       }
+      if (result.kind === "segmentation-out-of-memory") {
+        dispatch({ type: "generation_segmentation_out_of_memory" });
+        return;
+      }
+      if (result.kind === "no-subject") {
+        dispatch({ type: "generation_no_subject" });
+        return;
+      }
+      if (result.kind === "timeout") {
+        dispatch({ type: "generation_timeout" });
+        return;
+      }
       if (result.kind === "failed") {
         dispatch({ type: "generation_failed" });
         return;
@@ -133,6 +162,8 @@ export function SkyScreen() {
             }
           : null,
       });
+      const aim = skyRef.current?.getAim();
+      if (aim) void room.publishConstellation(result.constellation, aim);
     });
   };
 
@@ -237,6 +268,36 @@ export function SkyScreen() {
               edited={state.edited}
             />
           ) : null}
+          {roomState.status === "connected" && roomState.constellations.length > 0 ? (
+            <View style={styles.session}>
+              <Text style={styles.sessionLabel}>In this room</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sessionRow}>
+                {roomState.constellations.map((item) => {
+                  const active = roomState.selectedSharedId === item.sharedId;
+                  const mine = item.ownerUid === roomState.uid;
+                  return (
+                    <Pressable
+                      key={item.sharedId}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => {
+                        room.selectShared(item.sharedId);
+                        dispatch({ type: "select_room_constellation", constellation: roomConstellationToCustom(item) });
+                        skyRef.current?.focusAim(item.aim);
+                        setShowSubject(false);
+                      }}
+                      style={[styles.sessionChip, active && styles.sessionChipActive]}
+                    >
+                      <Text style={styles.sessionChipText}>
+                        {item.name}
+                        {mine ? " · Mine" : ` · ${item.ownerLabel}`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
           {state.sessionConstellations.length > 0 ? (
             <View style={styles.session}>
               <Text style={styles.sessionLabel}>This session</Text>
@@ -248,7 +309,10 @@ export function SkyScreen() {
                       key={item.constellation.id}
                       accessibilityRole="button"
                       accessibilityState={{ selected: active }}
-                      onPress={() => dispatch({ type: "recall_constellation", id: item.constellation.id })}
+                      onPress={() => {
+                        room.selectShared(null);
+                        dispatch({ type: "recall_constellation", id: item.constellation.id });
+                      }}
                       style={[styles.sessionChip, active && styles.sessionChipActive]}
                     >
                       <Text style={styles.sessionChipText}>{item.constellation.name}</Text>
@@ -258,6 +322,16 @@ export function SkyScreen() {
               </ScrollView>
             </View>
           ) : null}
+          <RoomPanel
+            room={roomState}
+            busy={roomState.status === "authenticating"}
+            onCreate={() => void room.createRoom()}
+            onJoin={(code) => void room.joinRoom(code)}
+            onLeave={() => void room.leaveRoom()}
+            onDraftChange={room.setJoinDraft}
+            onClearError={room.clearRoomError}
+            onRetryPublish={() => void room.retryPublish()}
+          />
           <GenerationPanel
             imageUri={photo?.previewUri ?? null}
             subjectPrompt={state.prompt}

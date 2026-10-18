@@ -177,6 +177,7 @@ export function buildPipelineStagePngs(
   mask: readonly (readonly number[])[],
   foundPng: string,
   maskPng: string,
+  outputStrokes?: readonly GeneratedStroke[],
 ): PipelineStagePngs | null {
   const binary = preparedBinaryFromMask(mask);
   if (!binary) return null;
@@ -188,6 +189,6 @@ export function buildPipelineStagePngs(
     mask: maskPng,
     grid: maskGridPreviewPng(mask),
     skeleton: skeletonPreviewPng(skeleton),
-    nodes: nodesPreviewPng(skeleton, graph.strokes),
+    nodes: nodesPreviewPng(skeleton, outputStrokes ?? graph.strokes),
   };
 }

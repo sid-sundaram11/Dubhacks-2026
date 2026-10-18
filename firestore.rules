@@ -1,0 +1,96 @@
+rules_version = '2';
+
+// Code-possession model (hackathon MVP): anyone who knows the unguessable 6-character
+// room code can join as an anonymously authenticated Firebase user. Room codes are not
+// durable account-level authorization; treat them like shared links.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roomExists(roomCode) {
+      return exists(/databases/$(database)/documents/rooms/$(roomCode));
+    }
+
+    function isRoomMember(roomCode) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/rooms/$(roomCode)/members/$(request.auth.uid));
+    }
+
+    function validAim(aim) {
+      return aim.keys().hasOnly(['quaternion', 'fov'])
+        && aim.quaternion is list
+        && aim.quaternion.size() == 4
+        && aim.fov is number
+        && aim.fov >= 25
+        && aim.fov <= 85;
+    }
+
+    function validConstellation(data) {
+      return data.keys().hasOnly([
+          'version', 'ownerUid', 'ownerLabel', 'clientConstellationId', 'name', 'story',
+          'prompt', 'source', 'segments', 'aim', 'createdAt', 'updatedAt',
+        ])
+        && data.version == 1
+        && data.ownerUid is string
+        && data.ownerUid.size() <= 128
+        && data.ownerLabel is string
+        && data.ownerLabel.size() <= 64
+        && data.clientConstellationId is string
+        && data.clientConstellationId.size() <= 128
+        && data.name is string
+        && data.name.size() <= 200
+        && data.story is string
+        && data.story.size() <= 500
+        && data.prompt is string
+        && data.prompt.size() <= 120
+        && data.source in ['sam3', 'fallback', 'manual']
+        && data.segments is list
+        && data.segments.size() <= 400
+        && validAim(data.aim);
+    }
+
+    match /rooms/{roomCode} {
+      allow list: if false;
+      allow get: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['version', 'hostUid', 'createdAt'])
+        && request.resource.data.version == 1
+        && request.resource.data.hostUid == request.auth.uid;
+      allow update, delete: if false;
+
+      match /members/{uid} {
+        allow read: if isRoomMember(roomCode);
+        allow create, update: if signedIn()
+          && request.auth.uid == uid
+          && roomExists(roomCode)
+          && request.resource.data.keys().hasOnly(['version', 'uid', 'label', 'joinedAt'])
+          && request.resource.data.version == 1
+          && request.resource.data.uid == uid
+          && request.resource.data.label is string
+          && request.resource.data.label.size() <= 64;
+        allow delete: if false;
+      }
+
+      match /constellations/{sharedId} {
+        allow read: if isRoomMember(roomCode);
+        allow create: if isRoomMember(roomCode)
+          && request.resource.data.ownerUid == request.auth.uid
+          && validConstellation(request.resource.data);
+        allow update: if isRoomMember(roomCode)
+          && resource.data.ownerUid == request.auth.uid
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.version == resource.data.version
+          && validConstellation(request.resource.data);
+        allow delete: if isRoomMember(roomCode)
+          && resource.data.ownerUid == request.auth.uid;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

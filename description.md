@@ -8,8 +8,9 @@ There is no camera preview, AR, or gyroscope in this version. The sky is a J2000
 
 1. **Explore the sky** — Drag to look around, pinch to change field of view, tap a star to read its name and details.
 2. **Choose a photo** — Open the system photo library (not an in-app camera). A thumbnail confirms the selection.
-3. **Generate** — The app sends the resized image and the current view context to a small local API. When generation succeeds, lines appear between stars and animate in. You get a short constellation name and a one-sentence story.
-4. **Edit or share** — Connect stars by hand in manual mode, undo segments, clear the drawing, or export a PNG of the sky with caption text.
+3. **Generate** — The app sends the resized image and optional subject prompt to the local Node API (SAM3 mask → **96×96** skeleton grid → strokes). When generation succeeds, lines appear between stars and animate in. You get a short constellation name, a one-sentence story, optional pipeline stage PNGs, and a debug trace in the dock.
+4. **Recall and reveal** — Switch among constellations created **this session** via chips in the dock. Tap the drawn figure on the sky to overlay the segmented subject (cutout from the photo) at low opacity.
+5. **Edit or share** — Connect stars by hand in manual mode, undo segments, clear the drawing, or export a PNG of the sky with caption text.
 
 If generation fails, the sky is unchanged. There is no generic “four-point star” or other placeholder shape when the pipeline cannot produce a valid constellation.
 
@@ -24,8 +25,8 @@ Photo + subject text → SAM3 (silhouette mask) → skeleton → simplified stro
 1. **SAM3 (separate service)** — Text-prompted instance segmentation returns a foreground mask. Optional **Subject in the photo** in the app is sent as the prompt. Name and story are generated deterministically on the Node server. No model keys in the client.
 2. **Mask cleanup** — Keep the largest foreground blob and close small holes.
 3. **Skeletonization** — Thin the silhouette to a one-pixel-wide medial axis (Zhang–Suen thinning, same idea as scikit-image’s skeleton examples).
-4. **Graph simplification** — Find endpoints and junctions on the skeleton, trace branches between them, and replace each branch with piecewise straight segments (total least-squares lines). Corners stay corners; short spurs are dropped. The result is a small set of strokes (on the order of 4–16 edges total).
-5. **Snap to stars** — Each stroke point is matched to bright stars visible in the current view. Constellations are stored as **pairs of HYG star ids**; screen position is always derived from the catalog and the current aim.
+4. **Graph simplification** — Find endpoints and junctions on the skeleton, trace branches between them, and replace each branch with piecewise straight segments (total least-squares lines). Junction pixels are unified so branches share exact endpoints. There is no fixed min/max segment count cap on the server.
+5. **Snap to stars** — Each stroke point is matched to bright stars visible in the current view. Consecutive points on a stroke must not collapse onto the same star (an alternate nearby star is chosen when needed). Constellations are stored as **pairs of HYG star ids**; screen position is always derived from the catalog and the current aim.
 
 ## Fixed size on the sky
 
@@ -38,7 +39,7 @@ If too few stars fall in that window, the app asks you to zoom out so more of th
 | Piece | Role |
 |--------|------|
 | **Expo client** | Star field (Three.js / expo-gl), touch aim (`SkyController`), photo picker, manual editing, share |
-| **Node server** | SAM3 client, mask → skeleton → strokes, validation |
+| **Node server** | SAM3 client, mask → skeleton → strokes, stage PNGs + debug payload, subject cutout |
 | **SAM3 service** | `services/sam3`, port 8790 |
 | **HYG catalog** | Bundled reduced star set; segments reference stable ids |
 
@@ -60,3 +61,5 @@ Do not commit `hygdata_v42.csv` or `.env.local`.
 ## Design intent
 
 The interface follows a calm, Sky Map–inspired presentation: black sky, restrained star points, constellation lines behind the stars, and a dock for creation and tools. The experience should feel like **inventing a personal asterism on a real map**, grounded in catalog data and a clear vision pipeline from photo to skeleton to star graph—not a decorative overlay unrelated to the image.
+
+Implementation reference for contributors and coding agents: [docs/agent-context.md](docs/agent-context.md).

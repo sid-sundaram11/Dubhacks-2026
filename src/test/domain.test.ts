@@ -305,15 +305,18 @@ describe("constellation creation", () => {
       expect(created.constellation.segments.length).toBeGreaterThanOrEqual(4);
     }
 
+    let failedCalls = 0;
     const failed = await createConstellation({
       image,
       ...sky,
       candidates: Array.from({ length: 40 }, (_, index) => ({ id: index + 1, x: 0, y: 0, brightness: 0.2, magnitude: 5 })),
       request: async () => {
+        failedCalls += 1;
         throw new Error("down");
       },
     });
     expect(failed.kind).toBe("failed");
+    expect(failedCalls).toBe(1);
 
     const unreachable = await createConstellation({
       image,
@@ -337,6 +340,36 @@ describe("constellation creation", () => {
     });
     expect(segmentationDown.kind).toBe("segmentation-unavailable");
     expect(calls).toBe(1);
+
+    const noSubject = await createConstellation({
+      image,
+      ...sky,
+      candidates,
+      request: async () => {
+        throw new Error("no_subject");
+      },
+    });
+    expect(noSubject.kind).toBe("no-subject");
+
+    const outOfMemory = await createConstellation({
+      image,
+      ...sky,
+      candidates,
+      request: async () => {
+        throw new Error("segmentation_out_of_memory");
+      },
+    });
+    expect(outOfMemory.kind).toBe("segmentation-out-of-memory");
+
+    const timeout = await createConstellation({
+      image,
+      ...sky,
+      candidates,
+      request: async () => {
+        throw new Error("timeout");
+      },
+    });
+    expect(timeout.kind).toBe("timeout");
 
     const withPrompt = await createConstellation({
       image,

@@ -11,7 +11,7 @@ import { layoutText } from "../share/bitmapFont";
 import { patchExpoWebGLForThree } from "./expoGlThree";
 import { constellationBounds, hitConstellation, pickStar, type ScreenRect } from "./picking";
 import { projectToScreen } from "./projection";
-import { SkyController } from "./skyController";
+import { SkyController, type SkyAim } from "./skyController";
 import { palette, serif } from "../../theme";
 import { placeStarLabels, type StarLabel } from "./starLabels";
 import { colorFromIndex, magnitudeToBrightness, magnitudeToSize } from "./starAppearance";
@@ -28,6 +28,8 @@ export interface SkyViewHandle {
   getProjected: () => ProjectedStar[];
   getSize: () => { width: number; height: number };
   getFov: () => number;
+  getAim: () => SkyAim;
+  focusAim: (aim: SkyAim) => void;
   capturePng: (caption: ShareCaption) => Promise<string | null>;
 }
 
@@ -135,6 +137,8 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
     getProjected: () => projectedRef.current.map((star) => ({ ...star })),
     getSize: () => ({ ...layoutRef.current }),
     getFov: () => sky.getAim().fov,
+    getAim: () => sky.getAim(),
+    focusAim: (aim) => sky.focusAim(aim),
     capturePng: async (caption) => {
       captionRef.current = caption;
       renderFrameRef.current();

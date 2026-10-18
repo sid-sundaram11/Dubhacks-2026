@@ -8,6 +8,8 @@ Three processes for photo → constellation generation:
 | 2 — Node API | `npm run server` | 8787 |
 | 3 — Expo | `npx expo start` | (simulator) |
 
+Architecture and file map: [agent-context.md](agent-context.md).
+
 ## Prerequisites
 
 - Node dependencies: `npm install`
@@ -29,17 +31,20 @@ curl -s -X POST http://127.0.0.1:8787/api/generate-constellation \
   -d '{"image":{"mimeType":"image/jpeg","data":"'"$(base64 < path/to/photo.jpg | tr -d '\n')"'"},"prompt":"dog"}' | jq .
 ```
 
+Successful responses include `name`, `story`, `strokes`, and usually `stages` (base64 PNGs: `found`, `mask`, `grid`, `skeleton`, `nodes`) plus `debug` (mask grid and skeleton counts).
+
 - **503 `segmentation_unavailable`** — SAM3 not running or model failed to load.
 - **502 `generation_failed`** — empty mask, invalid strokes, or snap failure.
 - **“The drawing server is not running.”** — Node on 8787 is down (client cannot connect).
 
-Generation timeout is **45s** (`GENERATION_ATTEMPT_MS`). CPU-only SAM3 is often too slow; use Apple MPS or CUDA for demos.
+SAM3 inference has a **120s** server-side timeout and the device request has a **135s** timeout. CPU-only SAM3 may still be too slow; use Apple MPS or CUDA for demos.
 
 ## App usage
 
 1. Pick a photo from the library.
 2. Optionally enter **Subject in the photo** (e.g. `dog`, `person`). Empty uses SAM3 default prompt `object`.
-3. Generate. The server segments with SAM3, skeletonizes the 48×48 mask, and snaps strokes to visible HYG stars.
+3. Generate. The server segments with SAM3, skeletonizes the **96×96** mask grid (`MASK_SIZE` in `src/domain/constants.ts`), and returns strokes for the client to snap to visible HYG stars.
+4. After success, check the dock **Generation trace** and the **bottom stage thumbnails**. Use **This session** chips to switch constellations. Tap the figure on the sky to toggle the subject cutout overlay.
 
 ## Manual QA checklist
 
@@ -49,5 +54,6 @@ Generation timeout is **45s** (`GENERATION_ATTEMPT_MS`). CPU-only SAM3 is often 
 - [ ] SAM3 stopped → status mentions segmentation service
 - [ ] Node stopped → status mentions drawing server
 - [ ] Zoom out if generation asks for more sky candidates
-
-Hackathon task breakdown: [docs/hackathon/sam3/](hackathon/sam3/).
+- [ ] Tap constellation lines → subject cutout toggles
+- [ ] Multiple generations → session chips recall each figure
+- [ ] Two-phone shared room → [realtime-demo.md](realtime-demo.md)

@@ -88,6 +88,17 @@ export class SkyController {
     this.emit();
   }
 
+  focusAim(aim: SkyAim): void {
+    const [x, y, z, w] = aim.quaternion;
+    if ([x, y, z, w].every((value) => Number.isFinite(value))) {
+      this.quaternion.set(x, y, z, w).normalize();
+    }
+    if (Number.isFinite(aim.fov)) {
+      this.fov = clamp(aim.fov, FOV_MIN, FOV_MAX);
+    }
+    this.emit();
+  }
+
   reset(): void {
     this.quaternion.copy(this.initial);
     this.fov = INITIAL_FOV;

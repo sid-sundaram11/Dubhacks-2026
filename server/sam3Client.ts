@@ -1,4 +1,4 @@
-import { GENERATION_ATTEMPT_MS } from "../src/domain/constants";
+import { SAM3_INFERENCE_TIMEOUT_MS } from "../src/domain/constants";
 import type { SubjectImage } from "../src/domain/generation";
 
 export interface Sam3SegmentResponse {
@@ -13,7 +13,7 @@ export interface Sam3SegmentResponse {
 export class Sam3ClientError extends Error {
   constructor(
     message: string,
-    readonly code: "connection" | "model_unavailable" | "segmentation",
+    readonly code: "connection" | "model_unavailable" | "no_subject" | "out_of_memory" | "segmentation",
     readonly status?: number,
   ) {
     super(message);
@@ -39,7 +39,7 @@ export async function segmentWithSam3(image: SubjectImage, prompt?: string): Pro
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(GENERATION_ATTEMPT_MS),
+      signal: AbortSignal.timeout(SAM3_INFERENCE_TIMEOUT_MS),
     });
   } catch (error) {
     const name = error instanceof Error ? error.name : "";
@@ -51,8 +51,14 @@ export async function segmentWithSam3(image: SubjectImage, prompt?: string): Pro
   if (response.status === 503 && payload.error === "model_unavailable") {
     throw new Sam3ClientError("model_unavailable", "model_unavailable", response.status);
   }
+  if (response.status === 503 && payload.error === "out_of_memory") {
+    throw new Sam3ClientError("out_of_memory", "out_of_memory", response.status);
+  }
   if (response.status === 503) {
     throw new Sam3ClientError(payload.error ?? "segmentation_unavailable", "connection", response.status);
+  }
+  if (response.status === 422 && payload.error === "no_subject") {
+    throw new Sam3ClientError("no_subject", "no_subject", response.status);
   }
   if (!response.ok) {
     throw new Sam3ClientError(payload.error ?? "segmentation_failed", "segmentation", response.status);

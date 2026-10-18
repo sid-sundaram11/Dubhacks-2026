@@ -81,6 +81,18 @@ describe("generate constellation handler", () => {
     });
     expect(modelDown.status).toBe(503);
     await expect(modelDown.json()).resolves.toEqual({ error: "segmentation_model_unavailable" });
+
+    const noSubject = await handleGenerateConstellation(request({ image }), async () => {
+      throw new SegmentSubjectError("none", "no_subject");
+    });
+    expect(noSubject.status).toBe(422);
+    await expect(noSubject.json()).resolves.toEqual({ error: "no_subject" });
+
+    const outOfMemory = await handleGenerateConstellation(request({ image }), async () => {
+      throw new SegmentSubjectError("oom", "out_of_memory");
+    });
+    expect(outOfMemory.status).toBe(503);
+    await expect(outOfMemory.json()).resolves.toEqual({ error: "segmentation_out_of_memory" });
   });
 
   it("rejects the wrong method, a foreign origin, a missing image, and an oversized body", async () => {

@@ -15,6 +15,9 @@ export type CreationResult =
   | { kind: "unreachable" }
   | { kind: "segmentation-unavailable" }
   | { kind: "segmentation-model-unavailable" }
+  | { kind: "segmentation-out-of-memory" }
+  | { kind: "no-subject" }
+  | { kind: "timeout" }
   | { kind: "failed" }
   | {
       kind: "constellation";
@@ -47,47 +50,49 @@ export async function createConstellation(input: {
 }): Promise<CreationResult> {
   if (input.candidates.length < CANDIDATE_MIN) return { kind: "zoom-out" };
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const trimmedPrompt = input.prompt?.trim();
-      const response = await input.request({
-        image: input.image,
-        ...(trimmedPrompt ? { prompt: trimmedPrompt } : {}),
-      });
-      const segments = snapStrokesToStars(response.strokes, input.candidates);
-      if (segments && segments.length > 0) {
-        const name = response.name.trim();
-        return {
-          kind: "constellation",
-          constellation: {
-            id: nextId(),
-            prompt: trimmedPrompt ?? name,
-            name,
-            story: response.story.trim(),
-            segments,
-            source: "sam3",
-          },
-          ...(response.stages ? { stageImages: response.stages } : {}),
-          ...(response.debug ? { serverDebug: response.debug } : {}),
-          clientTrace: {
-            candidateCount: input.candidates.length,
-            fov: input.fov,
-            viewportWidth: input.viewportWidth,
-            viewportHeight: input.viewportHeight,
-            segments,
-          },
-        };
-      }
-    } catch (error) {
-      if (serverUnreachable(error)) return { kind: "unreachable" };
-      if (error instanceof Error && error.message === "segmentation_unavailable") {
-        return { kind: "segmentation-unavailable" };
-      }
-      if (error instanceof Error && error.message === "segmentation_model_unavailable") {
-        return { kind: "segmentation-model-unavailable" };
-      }
+  try {
+    const trimmedPrompt = input.prompt?.trim();
+    const response = await input.request({
+      image: input.image,
+      ...(trimmedPrompt ? { prompt: trimmedPrompt } : {}),
+    });
+    const segments = snapStrokesToStars(response.strokes, input.candidates);
+    if (!segments || segments.length === 0) return { kind: "failed" };
+    const name = response.name.trim();
+    return {
+      kind: "constellation",
+      constellation: {
+        id: nextId(),
+        prompt: trimmedPrompt ?? name,
+        name,
+        story: response.story.trim(),
+        segments,
+        source: "sam3",
+      },
+      ...(response.stages ? { stageImages: response.stages } : {}),
+      ...(response.debug ? { serverDebug: response.debug } : {}),
+      clientTrace: {
+        candidateCount: input.candidates.length,
+        fov: input.fov,
+        viewportWidth: input.viewportWidth,
+        viewportHeight: input.viewportHeight,
+        segments,
+      },
+    };
+  } catch (error) {
+    if (serverUnreachable(error)) return { kind: "unreachable" };
+    if (error instanceof Error && error.name === "AbortError") return { kind: "timeout" };
+    if (error instanceof Error && error.message === "timeout") return { kind: "timeout" };
+    if (error instanceof Error && error.message === "segmentation_unavailable") {
+      return { kind: "segmentation-unavailable" };
     }
+    if (error instanceof Error && error.message === "segmentation_model_unavailable") {
+      return { kind: "segmentation-model-unavailable" };
+    }
+    if (error instanceof Error && error.message === "segmentation_out_of_memory") {
+      return { kind: "segmentation-out-of-memory" };
+    }
+    if (error instanceof Error && error.message === "no_subject") return { kind: "no-subject" };
   }
-
   return { kind: "failed" };
 }

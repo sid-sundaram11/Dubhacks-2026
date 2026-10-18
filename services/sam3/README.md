@@ -1,6 +1,6 @@
 # SAM3 segmentation service
 
-Standalone HTTP service for **Person 2** (`server/sam3Client.ts`). The Expo app never calls this directly.
+Standalone HTTP service consumed by the Node server (`server/sam3Client.ts`). The Expo app never calls this directly.
 
 Default URL: **`http://127.0.0.1:8790`** — set on the Node server as:
 
@@ -8,7 +8,7 @@ Default URL: **`http://127.0.0.1:8790`** — set on the Node server as:
 SAM3_URL=http://127.0.0.1:8790
 ```
 
-Person 2 downsamples the returned mask to **48×48** (`MASK_SIZE` in `src/domain/constants.ts`). This service returns a full-resolution mask at the processed image size (long edge capped at **768px**, matching the client photo picker).
+The Node server downsamples the returned mask to **`MASK_SIZE` (96×96)** in `src/domain/constants.ts`. This service returns a full-resolution mask at the processed image size (long edge capped at **768px**, matching the client photo picker).
 
 ## Prerequisites
 
@@ -52,7 +52,7 @@ On Apple Silicon, `auto` selects **MPS** when available. Set `PYTORCH_ENABLE_MPS
 | MPS (Apple Silicon) | ~30–120s load + ~5–15s | ~5–15s |
 | CPU | Very slow | Often **>16s** per image |
 
-Node uses `GENERATION_ATTEMPT_MS` (**45000**). CPU-only SAM3 may still time out; prefer GPU/MPS for hackathon demos.
+Node allows **120s** for SAM3 inference; the device request allows **135s**. CPU-only SAM3 may still time out; prefer GPU/MPS for hackathon demos.
 
 ### Out of memory
 
@@ -103,7 +103,7 @@ If inference OOMs, `POST /segment` returns **503** `{ "error": "out_of_memory" }
 ```
 
 - **`mask`**: PNG, mode `L`, pixels **0** (background) or **255** (subject). Decode in Node with any PNG library; treat values **≥ 127** (or **≥ 0.5** after scaling to 0–1) as foreground **1**.
-- **`label`**: text prompt actually used (for Person 3 copy).
+- **`label`**: text prompt actually used (for deterministic name/story in `server/segmentation/copy.ts`).
 - **`confidence`**: SAM3 score for the chosen instance.
 
 **Main subject policy**
@@ -148,9 +148,10 @@ Manual end-to-end segmentation needs Hugging Face access and a successful model 
 
 ## Node integration notes
 
-Aligns with [docs/hackathon/sam3/person-2-node-bridge.md](../../docs/hackathon/sam3/person-2-node-bridge.md):
+See [server/segmentation/README.md](../../server/segmentation/README.md) and [docs/agent-context.md](../../docs/agent-context.md):
 
 - Call `POST {SAM3_URL}/segment` with the same `mimeType` / `data` as the client image.
-- Resize mask to 48×48 (nearest-neighbor or area threshold).
+- Downsample mask to `MASK_SIZE` (96) via area thresholding in `downsampleMaskToGrid`.
 - If mask is empty after resize → `502 generation_failed`.
 - Pass `label` into `nameAndStoryForSegmentation`.
+- Prefer `cutoutSubjectPng` on the original image for the `found` stage PNG; optional `overlay` in the SAM3 response is a fallback.

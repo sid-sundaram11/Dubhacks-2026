@@ -70,4 +70,6 @@ export type GenerationErrorCode =
   | "generation_failed"
   | "segmentation_unavailable"
   | "segmentation_model_unavailable"
+  | "segmentation_out_of_memory"
+  | "no_subject"
   | "timeout";

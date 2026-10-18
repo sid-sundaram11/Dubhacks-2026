@@ -15,7 +15,10 @@ export const CATALOG_MIN = 4000;
 export const CATALOG_MAX = 4500;
 export const MAG_LIMIT = 7;
 export const ANCHOR_MAG = 3.5;
-export const GENERATION_ATTEMPT_MS = 45000;
+/** Allow a cold SAM3/MPS inference to finish before the Node bridge gives up. */
+export const SAM3_INFERENCE_TIMEOUT_MS = 120_000;
+/** The device request must outlive the server-side inference timeout. */
+export const GENERATION_REQUEST_TIMEOUT_MS = 135_000;
 /** Skeleton / mask grid resolution (was 48; higher preserves thin limbs). */
 export const MASK_SIZE = 96;
 export const DRAG_RADIANS_PER_PIXEL = 0.005;

@@ -18,7 +18,12 @@ These are independently implemented visual principles. No reference code, star t
 - Keyboard avoidance keeps the entry field accessible. Generation waits for keyboard dismissal before capturing star positions. Details and result changes reset the dock to the top.
 - Stars range from approximately 1.15 to 4 logical pixels according to magnitude, with density-aware anti-aliased edges. Naming a star does not inflate it. Catalog B−V colors and J2000 coordinates are retained.
 - Constellation segments are one-point muted blue lines drawn behind the stars. Selection uses a fine ring. Up to eight bright named-star labels are placed with collision checks.
-- Existing generation, manual editing, offline fallback, undo, confirmation, and sharing remain available. Sharing failures now leave a visible retry message.
+- After SAM3 generation, the dock can show a **Generation trace** panel (JSON summary) and a fixed **bottom stage bar** with four pipeline thumbnails (found subject, mask, skeleton, nodes). Dock bottom padding accounts for the stage bar when a probe is present.
+- **This session** is a horizontal chip row under the constellation card; it recalls prior generated figures without clearing the sky catalog view.
+- Tapping a visible generated constellation line (hit test on segments, not star pick) toggles a **subject cutout** `Image` over the figure’s screen bounds at ~38% opacity (`SkyView` + `picking.constellationBounds`).
+- Existing generation, manual editing, undo, confirmation, and sharing remain available. Sharing failures leave a visible retry message.
+
+Agent-oriented UI notes live in [agent-context.md](agent-context.md).
 
 ## Validation
 

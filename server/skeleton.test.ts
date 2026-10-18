@@ -111,4 +111,19 @@ describe("skeleton constellations", () => {
     expect(strokesFromMask(blank())).toBeNull();
     expect(graphFromMask([[0]])).toBeNull();
   });
+
+  it("falls back to a closed silhouette when a filled subject skeleton collapses", () => {
+    const mask = blank();
+    fill(mask, 20, 24, 76, 72);
+    const strokes = strokesFromMask(mask);
+    expect(strokes).toHaveLength(1);
+    const points = strokes![0]!.points;
+    expect(points.length).toBeGreaterThanOrEqual(5);
+    expect(points.length).toBeLessThanOrEqual(25);
+    expect(points[0]).toEqual(points[points.length - 1]);
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(0.45);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(0.4);
+  });
 });

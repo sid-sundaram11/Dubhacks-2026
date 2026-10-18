@@ -10,7 +10,7 @@ import { downsampleMaskToGrid, maskGridIsEmpty } from "./downsampleMask";
 export class SegmentSubjectError extends Error {
   constructor(
     message: string,
-    readonly kind: "unavailable" | "model_unavailable" | "failed",
+    readonly kind: "unavailable" | "model_unavailable" | "no_subject" | "out_of_memory" | "failed",
   ) {
     super(message);
     this.name = "SegmentSubjectError";
@@ -37,6 +37,12 @@ export async function segmentSubject(image: SubjectImage, prompt?: string) {
       }
       if (error.code === "connection") {
         throw new SegmentSubjectError(error.message, "unavailable");
+      }
+      if (error.code === "no_subject") {
+        throw new SegmentSubjectError(error.message, "no_subject");
+      }
+      if (error.code === "out_of_memory") {
+        throw new SegmentSubjectError(error.message, "out_of_memory");
       }
       throw new SegmentSubjectError(error.message, "failed");
     }
