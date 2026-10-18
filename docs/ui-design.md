@@ -1,32 +1,29 @@
 # Constellations UI
 
-## Reference analysis
+## Entry and navigation
 
-The reference is the original Google Sky Map lineage, now maintained as Sky Map (Stardroid v1), rather than the separate Google Sky website.
+The launch screen contains the Constellations title, an optional room code with an inline join arrow, Solo, and an AR switch. Solo works without Firebase. Joining only enters the sky after connection succeeds; failures stay on the launch screen. Saved rooms do not bypass this screen.
 
-- [SkyRenderer](https://github.com/sky-map-team/stardroid/blob/master/stardroid-v1/app/src/main/java/com/google/android/stardroid/renderer/SkyRenderer.java) clears to RGB (0, 0, 0). Its optional sky gradient is a separate layer, disabled at initialization. The app uses pure black, #000000.
-- [PointObjectManager](https://github.com/sky-map-team/stardroid/blob/master/stardroid-v1/app/src/main/java/com/google/android/stardroid/renderer/PointObjectManager.java) renders textured star points at celestial positions, with explicit size/color and field-of-view sizing. This suggests a restrained point hierarchy instead of large decorative glows.
-- SkyRenderer resolves label collisions each frame and limits rendering to active sky regions. Constellations similarly gives priority to bright named stars and avoids overlapping labels, the control rail, and the gesture hint.
+The sky fills the display and stays mounted while menus open. A 50-point textured, rotating Earth inside a 64-point bottom-center button opens the native menu. Reduced Motion stops globe rotation. All image generation, drawing, undo, clear, sharing, room management, history, zoom, and recenter controls live in this menu. Star names default off. Generation traces and thumbnails require opening Generation details.
 
-These are independently implemented visual principles. No reference code, star textures, or branding assets were copied.
+## Sky treatment
 
-## Implementation
+[Stellarium's official gallery](https://stellarium.org/screenshots.html) informed the dark blue sky, restrained galactic haze, varied star sizes, and soft bright-star halos. The implementation uses its own procedural galactic dust aligned with the J2000 galactic plane. It is a visual approximation, not a survey image or full Stellarium rendering engine.
 
-- Shared Times New Roman typography on iOS, platform serif fallback on Android; no downloadable font dependency. Colors and font selection live in src/theme.ts.
-- A compact title, separate sky viewport, and fixed-height creation dock. The dock scrolls on small screens, for large text, and when results or star details expand. Adding a result never resizes the sky and displaces the generated drawing.
-- The prompt and submit button share one row; suggestions and editing controls have at least 44-point targets. Sky navigation changes to a horizontal row when the viewport is short.
-- Keyboard avoidance keeps the entry field accessible. Generation waits for keyboard dismissal before capturing star positions. Details and result changes reset the dock to the top.
-- Stars range from approximately 1.15 to 4 logical pixels according to magnitude, with density-aware anti-aliased edges. Naming a star does not inflate it. Catalog B−V colors and J2000 coordinates are retained.
-- Constellation segments are one-point muted blue lines drawn behind the stars. Selection uses a fine ring. Up to eight bright named-star labels are placed with collision checks.
-- After SAM3 generation, the dock can show a **Generation trace** panel (JSON summary) and a fixed **bottom stage bar** with four pipeline thumbnails (found subject, mask, skeleton, nodes). Dock bottom padding accounts for the stage bar when a probe is present.
-- **This session** is a horizontal chip row under the constellation card; it recalls prior generated figures without clearing the sky catalog view.
-- Tapping a visible generated constellation line (hit test on segments, not star pick) toggles a **subject cutout** `Image` over the figure’s screen bounds at ~38% opacity (`SkyView` + `picking.constellationBounds`).
-- Existing generation, manual editing, undo, confirmation, and sharing remain available. Sharing failures leave a visible retry message.
+HYG right ascension, declination, magnitude, and B−V colors drive stars. Point sprites range from 1 to 9 logical pixels including the halo; the bright core occupies a smaller area. Constellation segments still connect HYG IDs and project through the same sky aim. Subject cutouts remain opt-in by tapping a generated constellation.
 
-Agent-oriented UI notes live in [agent-context.md](agent-context.md).
+The supplied DJORE screenshot is a typography reference, not a usable font asset. iOS uses the built-in high-contrast Didot fallback; Android uses native serif. An exact DJORE implementation requires a licensed OTF/TTF asset.
 
-## Validation
+## Motion mode
 
-TypeScript checking and all 22 Vitest tests pass, including star size, label collision, reserved-control-space, and large-text label checks. The Expo tsconfig extension includes its .json suffix for compatibility with the Vitest transformer.
+AR uses `expo-sensors` DeviceMotion. It follows device rotation, with no camera feed. `deviceAttitude.ts` handles platform angle conventions and screen orientation, anchors the initial sample to the existing view, and sends subsequent aim quaternions through `SkyController.setAim`.
 
-The iPhone 17 Pro / iOS 26.5 Expo Go preview was exercised for initial rendering, text entry, software-keyboard placement, generation from the keyboard, offline fallback, star selection/details, and clearing a drawing. Online model generation and Android rendering were not exercised in this UI pass.
+Switching modes preserves the current sky and field of view. Motion pauses during generation, while the menu is open, and when the app backgrounds; it reanchors on resume. Missing sensors, denied permissions, or absent initial readings return to touch mode with an explanation in the menu.
+
+This is relative motion control. Geographic north, location/time alignment, and compass calibration are not implemented.
+
+## Native setup and verification
+
+`expo-sensors` and `@expo/ui` must be included in a rebuilt development client. The Expo config includes the iOS motion permission description. Native iOS pods were installed locally.
+
+Checks: TypeScript, 61 Vitest tests (including motion anchoring, orientation, angle continuity, zoom preservation, and reanchoring), and production iOS JavaScript export passed. The iOS Release build also passed and was exercised in the iPhone 17 Pro simulator: clean launch, Solo, globe menu, drawing a star segment, undo, and unavailable-motion fallback. Physical sensor tracking and multi-device room synchronization remain unverified. The Debug build encountered a React Native Sealable linker error; Release was used for native validation.

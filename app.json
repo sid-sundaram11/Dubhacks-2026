@@ -13,7 +13,8 @@
         "NSLocalNetworkUsageDescription": "Constellations connects to the Mac on your Wi‑Fi network that runs the constellation generator.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "NSMotionUsageDescription": "Constellations uses device motion to move the star sky as you turn your phone."
       },
       "bundleIdentifier": "com.angadslr.ai-constellation-creator"
     },
@@ -37,6 +38,12 @@
           "photosPermission": "Constellations uses photos to draw a constellation from the subject.",
           "cameraPermission": false,
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Constellations uses device motion to move the star sky as you turn your phone."
         }
       ]
     ]

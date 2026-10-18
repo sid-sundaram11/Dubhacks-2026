@@ -4,8 +4,8 @@ Expo SDK 58 **single-screen** app. One celestial view—not Expo Router, not a w
 
 ## Hard constraints
 
-- The sky is a dark **J2000 HYG star sphere**. No camera preview, ARKit, ARCore, or camera texture. No gyroscope subscription in this version.
-- **`SkyController`** (`src/features/starfield/skyController.ts`) is the **only** sky aim. Touch writes its quaternion today. A later device-attitude source may call `setAim` and must **not** introduce a second rotation path.
+- The sky is a dark **J2000 HYG star sphere**. No camera preview, ARKit, ARCore, or camera texture. Optional AR mode uses Expo DeviceMotion through `SkyController.setAim`; it is a motion-controlled star sky, with no camera feed.
+- **`SkyController`** (`src/features/starfield/skyController.ts`) is the **only** sky aim. Touch and the calibrated device-attitude adapter write its quaternion. Never introduce a second rotation path.
 - Constellation segments are **HYG id pairs**; screen position is always derived from the catalog + aim.
 - **SAM3** runs in `services/sam3/` (port **8790**). Node calls it via **`SAM3_URL`** in root `.env.local`. Hugging Face credentials stay in **`services/sam3/.env` only**—never in the Expo app or `EXPO_PUBLIC_*`.
 - Do not commit `hygdata_v42.csv` or `.env.local`.

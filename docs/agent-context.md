@@ -4,7 +4,7 @@
 
 ## Product
 
-Single-screen Expo SDK 58 app (**Constellations** / AI Constellation Creator). User explores a **J2000 HYG star sphere** (touch drag/pinch only—no camera, AR, or gyro). They pick a **photo from the library**, optionally enter **Subject in the photo** (SAM3 text prompt), and generate a **custom constellation**: straight line segments between **real star ids** that approximate a stick figure of the subject.
+Single-screen Expo SDK 58 app (**Constellations** / AI Constellation Creator). User explores a **J2000 HYG star sphere** (touch drag/pinch or optional phone-motion AR; no camera feed). They pick a **photo from the library**, optionally enter **Subject in the photo** (SAM3 text prompt), and generate a **custom constellation**: straight line segments between **real star ids** that approximate a stick figure of the subject.
 
 Manual star-to-star drawing, undo, clear, share PNG, and offline catalog browsing remain supported.
 
@@ -47,7 +47,7 @@ Base64 PNGs returned on success (also used in UI):
 | `skeleton` | Thinned medial axis on grid |
 | `nodes` | Skeleton + fitted stroke geometry / nodes |
 
-The dock shows a **Generation trace** JSON panel; the **bottom bar** shows thumbnails for `found`, `mask`, `skeleton`, `nodes` (labels 1–4).
+The globe menu contains an opt-in **Generation details** section with the trace and stage thumbnails. Nothing from generation is shown by default on the sky.
 
 ### Debug payload (`debug`)
 
@@ -84,13 +84,13 @@ Structured counts: SAM3 metadata, `maskGrid`, skeleton endpoint/junction/stroke 
 
 | Module | Role |
 |--------|------|
-| `shell/SkyScreen.tsx` | Main UI: dock, session chips, stage bar, generation |
+| `shell/SkyScreen.tsx` | Landing screen and immersive sky; globe opens native menu with session history and generation |
 | `shell/appReducer.ts` | State; `sessionConstellations`, `generationProbe`, `recall_constellation` |
 | `features/constellation/createConstellation.ts` | API call + snap; builds `GenerationTrace` |
 | `features/constellation/snapStrokesToStars.ts` | Map stroke points to stars; **consecutive points must not share the same star** (`avoid` alternate pick) |
 | `features/starfield/SkyView.tsx` | WebGL sky; tap on constellation lines toggles subject overlay |
 | `features/starfield/picking.ts` | `hitConstellation`, `constellationBounds` for overlay placement |
-| `features/starfield/skyController.ts` | **Only** sky aim quaternion (touch today; future `setAim` for attitude) |
+| `features/starfield/skyController.ts` | **Only** sky aim quaternion (touch, room focus, and DeviceMotion via `setAim`) |
 
 ### Session constellations
 
@@ -137,3 +137,14 @@ When changing `MASK_SIZE`, update fixtures that build all-zero or patterned grid
 | [docs/ui-design.md](ui-design.md) | Visual / layout intent |
 
 Historical hackathon “Person 1–4” task splits were removed; this file replaces them.
+
+## Immersive sky and motion
+
+- Opening screen: title, optional room code with join arrow, Solo, AR toggle. No automatic room restore on launch.
+- `WelcomeScreen.tsx`, `MotionToggle.tsx`, `GlobeMenuButton.tsx` hold the entry UI and rotating Earth menu.
+- All editing, image generation, rooms, zoom/reset, sharing, star names, and debug controls live inside the globe menu. Names default off.
+- `deviceAttitude.ts` converts native device angles to a calibrated relative quaternion. `useDeviceAim.ts` manages availability, permission, background cleanup, no-reading fallback, and recalibration. Motion pauses while the menu is open or generation locks the sky.
+- AR follows phone rotation relative to the view at activation; it does not align the sky to geographic north, GPS, or local sidereal time.
+- `skyAtmosphere.ts` adds procedural galactic dust aligned to the J2000 plane, not a photographic survey. Stars and constellation vertices still use HYG positions.
+- Exact DJORE font is not bundled: a licensed font file is required. Current display fallback is Didot on iOS and native serif elsewhere.
+- Native packages `expo-sensors` and `@expo/ui` require a rebuilt development client.

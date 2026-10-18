@@ -1,3 +1,5 @@
+import { useDeviceAim } from "./useDeviceAim";
+import { createSkyAtmosphere } from "./skyAtmosphere";
 import { GLView, type ExpoWebGLRenderingContext } from "expo-gl";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Image, Text, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
@@ -39,6 +41,9 @@ interface SkyViewProps {
   reveal: number;
   selectedStarId: number | null;
   interactionEnabled: boolean;
+  motionEnabled: boolean;
+  showLabels: boolean;
+  onMotionError: (message: string) => void;
   subjectUri: string | null;
   subjectVisible: boolean;
   onSelectStar: (id: number) => void;
@@ -99,12 +104,18 @@ function pushLine(
 }
 
 export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(props, ref) {
+  const [calibration, setCalibration] = useState(0);
   const [labels, setLabels] = useState<StarLabel[]>([]);
   const [subjectFrame, setSubjectFrame] = useState<ScreenRect | null>(null);
   const { fontScale } = useWindowDimensions();
   const fontScaleRef = useRef(fontScale);
   fontScaleRef.current = fontScale;
   const sky = useRef(new SkyController()).current;
+  useDeviceAim(sky, props.motionEnabled && props.interactionEnabled, calibration, props.onMotionError);
+  const motionRef = useRef(props.motionEnabled);
+  motionRef.current = props.motionEnabled;
+  const showLabelsRef = useRef(props.showLabels);
+  showLabelsRef.current = props.showLabels;
   const starsRef = useRef(props.stars);
   const segmentsRef = useRef(props.segments);
   const revealRef = useRef(props.reveal);
@@ -120,6 +131,8 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
   const glViewRef = useRef<GLView>(null);
   const renderFrameRef = useRef<() => void>(() => {});
   const cleanupRef = useRef<(() => void) | null>(null);
+  const needsRenderRef = useRef(true);
+  needsRenderRef.current = true;
   starsRef.current = props.stars;
   segmentsRef.current = props.segments;
   revealRef.current = props.reveal;
@@ -132,13 +145,13 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
   useEffect(() => () => cleanupRef.current?.(), []);
 
   useImperativeHandle(ref, () => ({
-    reset: () => sky.reset(),
+    reset: () => { sky.reset(); setCalibration((value) => value + 1); },
     zoomBy: (degrees) => sky.zoomBy(degrees),
     getProjected: () => projectedRef.current.map((star) => ({ ...star })),
     getSize: () => ({ ...layoutRef.current }),
     getFov: () => sky.getAim().fov,
     getAim: () => sky.getAim(),
-    focusAim: (aim) => sky.focusAim(aim),
+    focusAim: (aim) => { sky.focusAim(aim); setCalibration((value) => value + 1); },
     capturePng: async (caption) => {
       captionRef.current = caption;
       renderFrameRef.current();
@@ -164,7 +177,7 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
         lastY = 0;
       })
       .onUpdate((event) => {
-        if (!enabledRef.current) return;
+        if (!enabledRef.current || motionRef.current) return;
         sky.applyDrag(event.translationX - lastX, event.translationY - lastY);
         lastX = event.translationX;
         lastY = event.translationY;
@@ -194,6 +207,7 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
   }, [sky]);
 
   const onLayout = (event: LayoutChangeEvent) => {
+    needsRenderRef.current = true;
     layoutRef.current = {
       width: Math.max(1, event.nativeEvent.layout.width),
       height: Math.max(1, event.nativeEvent.layout.height),
@@ -201,6 +215,7 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
   };
 
   const onContextCreate = (gl: ExpoWebGLRenderingContext) => {
+    cleanupRef.current?.();
     patchExpoWebGLForThree();
     const canvas = {
       width: gl.drawingBufferWidth,
@@ -225,6 +240,9 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
     renderer.autoClear = false;
     renderer.setClearColor(0x000000, 1);
 
+    const atmosphereScene = new THREE.Scene();
+    const atmosphere = createSkyAtmosphere();
+    atmosphereScene.add(atmosphere.mesh);
     const starScene = new THREE.Scene();
     const overlayScene = new THREE.Scene();
     const lineScene = new THREE.Scene();
@@ -236,6 +254,7 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
       glslVersion: THREE.GLSL3,
       transparent: true,
       depthWrite: false,
+      blending: THREE.AdditiveBlending,
       uniforms: { uPixelRatio: { value: 1 } },
       vertexShader: `
         uniform float uPixelRatio;
@@ -256,7 +275,9 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
           vec2 point = gl_PointCoord - vec2(0.5);
           float distance = length(point);
           if (distance > 0.5) discard;
-          float alpha = 1.0 - smoothstep(0.30, 0.5, distance);
+          float core = exp(-distance * distance * 48.0);
+          float halo = exp(-distance * distance * 12.0) * 0.22;
+          float alpha = (core + halo) * (1.0 - smoothstep(0.42, 0.5, distance));
           fragColor = vec4(vColor, alpha);
         }
       `,
@@ -316,9 +337,9 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
         positions[index * 3 + 2] = vector.z;
         const color = colorFromIndex(star.colorIndex);
         const brightness = magnitudeToBrightness(star.magnitude);
-        colors[index * 3] = color[0] * (0.45 + brightness * 0.55);
-        colors[index * 3 + 1] = color[1] * (0.45 + brightness * 0.55);
-        colors[index * 3 + 2] = color[2] * (0.45 + brightness * 0.55);
+        colors[index * 3] = color[0] * (0.4 + Math.pow(brightness, 0.7) * 0.6);
+        colors[index * 3 + 1] = color[1] * (0.4 + Math.pow(brightness, 0.7) * 0.6);
+        colors[index * 3 + 2] = color[2] * (0.4 + Math.pow(brightness, 0.7) * 0.6);
         sizes[index] = magnitudeToSize(star.magnitude, 1);
         return {
           id: star.id,
@@ -366,12 +387,13 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
         };
       });
       projectedRef.current = projected;
-      const nextLabels = placeStarLabels(
+
+      const nextLabels = showLabelsRef.current ? placeStarLabels(
         projected.flatMap((star) => {
           const name = namedStars.get(star.id);
           return name ? [{ ...star, name }] : [];
         }), width, height, fontScaleRef.current,
-      );
+      ) : [];
       const nextSignature = nextLabels.map((label) => `${label.id}:${label.x.toFixed(1)}:${label.y.toFixed(1)}:${label.width}`).join("|");
       if (nextSignature !== labelSignature) {
         labelSignature = nextSignature;
@@ -450,6 +472,7 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
       overlayGeometry.setAttribute("aColor", new THREE.Float32BufferAttribute(colors, 4));
       overlay.visible = positions.length > 0;
       renderer.clear(true, true, true);
+      renderer.render(atmosphereScene, camera);
       renderer.render(lineScene, ortho);
       renderer.render(starScene, camera);
       renderer.clearDepth();
@@ -458,13 +481,21 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
     };
 
     renderFrameRef.current = renderFrame;
-    const loop = () => {
+    const unsubscribe = sky.subscribe(() => { needsRenderRef.current = true; });
+    let previousRender = 0;
+    const loop = (time: number) => {
       frame = requestAnimationFrame(loop);
+      if (!needsRenderRef.current || time - previousRender < 32) return;
+      previousRender = time;
+      needsRenderRef.current = false;
       renderFrame();
     };
-    loop();
+    renderFrame();
+    frame = requestAnimationFrame(loop);
     cleanupRef.current = () => {
       cancelAnimationFrame(frame);
+      unsubscribe();
+      atmosphere.dispose();
       geometry.dispose();
       material.dispose();
       overlayGeometry.dispose();
@@ -477,7 +508,7 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
   return (
     <GestureDetector gesture={gesture}>
       <View style={{ flex: 1 }} onLayout={onLayout}>
-        <GLView ref={glViewRef} style={{ flex: 1, backgroundColor: palette.sky }} onContextCreate={onContextCreate} />
+        <GLView msaaSamples={0} ref={glViewRef} style={{ flex: 1, backgroundColor: palette.sky }} onContextCreate={onContextCreate} />
         {props.subjectVisible && props.subjectUri && subjectFrame ? (
           <Image
             accessibilityIgnoresInvertColors

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "launch": {
+      "targetKind": "new-target",
+      "projectId": "edfc3f36-3a89-463f-a4c5-03c38c17e158",
+      "activeDraftId": "2f79ad91-af84-41f1-8624-4f5600652a87",
+      "designSystemPath": ".superdesign/design-system.md",
+      "referenceIds": [
+        "6faaf584-950d-49dc-a787-8bff87f592be"
+      ],
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        "src/theme.ts"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "391500cf56b12adac45947260060413accfff31f9aba5406fd38d688bb2f0bcc",
+        "src/theme.ts": "41aa2a0832cfb45678b56b75c51a71f3b2cff5ab19716e979dd42594284f76da"
+      },
+      "components": [],
+      "drafts": {
+        "2f79ad91-af84-41f1-8624-4f5600652a87": {
+          "title": "Constellations Native Launch",
+          "visualDirection": "Minimal night sky with high-contrast serif title and four entry controls"
+        }
+      },
+      "updatedAt": "2026-10-18T12:05:29.165367+00:00"
+    }
+  }
+}

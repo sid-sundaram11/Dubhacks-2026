@@ -18,9 +18,7 @@ export interface SkyAim {
 }
 
 /**
- * One sky aim. Finger drag and pinch write it today.
- * A later device-attitude source can call setAim with the same quaternion.
- * This version never reads gyroscope, compass, or magnetometer data.
+ * One sky aim, shared by touch, room focus, and calibrated device attitude.
  */
 export class SkyController {
   private readonly quaternion = new THREE.Quaternion();

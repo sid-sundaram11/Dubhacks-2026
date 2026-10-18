@@ -32,7 +32,7 @@ export function RoomPanel({
     return (
       <View style={styles.panel} accessibilityLabel="Shared room">
         <Text style={styles.heading}>Shared room</Text>
-        <Text style={styles.hint}>Add Firebase config to .env.local to share constellations across devices.</Text>
+        <Text style={styles.hint}>Rooms are unavailable right now. Your solo sky is ready to explore.</Text>
       </View>
     );
   }

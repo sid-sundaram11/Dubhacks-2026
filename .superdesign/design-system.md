@@ -1,0 +1,2 @@
+# Constellations
+Native portrait planetarium. Full-bleed ink navy sky, subdued physically inspired Milky Way, magnitude-scaled blue-white and warm stars. Warm ivory high-contrast serif display inspired by DJORE (font not supplied), generous negative space. Landing: only title, optional room code with inline join, Solo button, AR toggle. In sky: only bottom-center spinning Earth button; menu contains create, draw, rooms, library, controls. No camera imagery. All interactions minimum 44pt.

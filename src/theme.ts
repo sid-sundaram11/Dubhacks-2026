@@ -1,9 +1,9 @@
 import { Platform } from "react-native";
 
 export const palette = {
-  sky: "#000000",
-  surface: "#0b0d0e",
-  raised: "#15191b",
+  sky: "#010309",
+  surface: "#090e18",
+  raised: "#111a27",
   border: "#293033",
   text: "#f3f0e8",
   secondary: "#b0b8bb",
@@ -11,9 +11,9 @@ export const palette = {
   accent: "#9ecbd0",
 };
 
-// Times New Roman is built into iOS. Android uses its native serif fallback.
+// DJORE requires a licensed font asset. Didot is the built-in iOS display fallback.
 export const serif = Platform.select({
-  ios: "Times New Roman",
+  ios: "Didot",
   android: "serif",
-  default: "Times New Roman",
+  default: "Didot",
 })!;

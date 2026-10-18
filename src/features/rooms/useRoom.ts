@@ -17,6 +17,7 @@ export interface UseRoomOptions {
   roomState: RoomState;
   dispatch: React.Dispatch<RoomAction>;
   repository?: RoomRepository;
+  restoreSession?: boolean;
   getFallbackAim?: () => SkyAim;
   onPublishFailed?: (message: string) => void;
 }
@@ -216,6 +217,7 @@ export function useRoom(options: UseRoomOptions) {
         return;
       }
       if (!cancelled) dispatch({ type: "room_disconnected" });
+      if (options.restoreSession === false) return;
       const saved = await readActiveRoomCode();
       if (!saved || cancelled) return;
       await joinRoom(saved);

@@ -5,10 +5,10 @@ import { placeStarLabels, type LabelStar } from "../features/starfield/starLabel
 const star = (id: number, x: number, y: number, magnitude = 1): LabelStar => ({ id, name: `Star ${id}`, x, y, magnitude, onScreen: true });
 
 describe("star presentation", () => {
-  it("keeps faint stars small and bright stars under four logical pixels at every density", () => {
+  it("keeps faint stars small while giving the brightest stars a nine-pixel halo at every density", () => {
     for (const density of [1, 2, 3]) {
       expect(magnitudeToSize(7, density)).toBeLessThan(1.2 * density);
-      expect(magnitudeToSize(-1.46, density)).toBe(4 * density);
+      expect(magnitudeToSize(-1.46, density)).toBe(9 * density);
       expect(magnitudeToSize(2, density)).toBeGreaterThan(magnitudeToSize(5, density));
       expect(magnitudeToSize(2, density, true)).toBe(magnitudeToSize(2, density, false));
     }

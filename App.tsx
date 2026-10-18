@@ -8,7 +8,7 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <SkyScreen />
-        <StatusBar style="light" />
+        <StatusBar style="light" hidden />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
