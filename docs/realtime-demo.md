@@ -12,12 +12,18 @@ See also [sam3-dev.md](sam3-dev.md) for the segmentation stack.
 4. **Project settings → General → Your apps** → add a **Web** app and copy the config object fields.
 5. Deploy rules from this repo:
    ```bash
-   npm install -g firebase-tools
-   firebase login
-   firebase use --add   # select your project
-   firebase deploy --only firestore:rules
+   npx --yes firebase-tools@15.34.0 login
+   npx --yes firebase-tools@15.34.0 use --add   # select your project
+   npx --yes firebase-tools@15.34.0 deploy --only firestore:rules
    ```
    Or paste `firestore.rules` into **Firestore → Rules** in the console and publish.
+
+   A Git push does not publish Firestore rules. Deploy again after every `firestore.rules` change.
+
+6. Verify anonymous authentication and the room transaction locally:
+   ```bash
+   npm run test:firebase-room
+   ```
 
 ## Root `.env.local` (gitignored)
 

@@ -8,6 +8,7 @@ import { FirebaseRoomRepository, type RoomRepository } from "./roomRepository";
 import { readActiveRoomCode, writeActiveRoomCode } from "./roomStorage";
 import type { RoomAction, RoomState } from "./roomReducer";
 import { INITIAL_FOV } from "../../domain/constants";
+import { roomErrorMessage } from "./roomError";
 const defaultFallbackAim = (): SkyAim => ({
   quaternion: [0, 0, 0, 1],
   fov: INITIAL_FOV,
@@ -126,8 +127,10 @@ export function useRoom(options: UseRoomOptions) {
         label: auth.label,
         listenerEpoch: epoch,
       });
-      await writeActiveRoomCode(code);
       attachListeners(code, epoch);
+      void writeActiveRoomCode(code).catch(() => {
+        // The live room remains usable even when local session persistence fails.
+      });
     },
     [attachListeners, dispatch, ensureAuth, ensureRepository],
   );
@@ -140,8 +143,8 @@ export function useRoom(options: UseRoomOptions) {
       if (!repository || !auth) return;
       const code = await repository.createRoom(auth);
       await connectToRoom(code);
-    } catch {
-      dispatch({ type: "room_error", message: "Could not create a room. Try again.", preserveCode: true });
+    } catch (error) {
+      dispatch({ type: "room_error", message: roomErrorMessage("create", error), preserveCode: true });
     }
   }, [connectToRoom, dispatch, ensureAuth, ensureRepository]);
 
@@ -156,11 +159,7 @@ export function useRoom(options: UseRoomOptions) {
         const normalized = code.trim().toUpperCase();
         await connectToRoom(normalized);
       } catch (error) {
-        const message =
-          error instanceof Error && error.message === "room_not_found"
-            ? "Room not found."
-            : "Could not join the room. Check the code and try again.";
-        dispatch({ type: "room_error", message, preserveCode: true });
+        dispatch({ type: "room_error", message: roomErrorMessage("join", error), preserveCode: true });
       }
     },
     [connectToRoom, dispatch, ensureAuth, ensureRepository],
@@ -169,8 +168,10 @@ export function useRoom(options: UseRoomOptions) {
   const leaveRoom = useCallback(async () => {
     detachListeners();
     listenerEpochRef.current += 1;
-    await writeActiveRoomCode(null);
     dispatch({ type: "room_left" });
+    void writeActiveRoomCode(null).catch(() => {
+      // Leaving the live room must not depend on local session persistence.
+    });
   }, [detachListeners, dispatch]);
 
   const roomCodeRef = useRef<string | null>(null);
@@ -194,9 +195,9 @@ export function useRoom(options: UseRoomOptions) {
           aim,
         });
         dispatch({ type: "room_clear_pending_publish" });
-      } catch {
+      } catch (error) {
         dispatch({ type: "room_pending_publish", pending: { constellation, aim } });
-        onPublishFailed?.("Constellation created locally, but room sync failed.");
+        onPublishFailed?.(roomErrorMessage("sync", error));
       }
     },
     [ensureAuth, ensureRepository, onPublishFailed, dispatch],
@@ -216,7 +217,7 @@ export function useRoom(options: UseRoomOptions) {
         return;
       }
       if (!cancelled) dispatch({ type: "room_disconnected" });
-      const saved = await readActiveRoomCode();
+      const saved = await readActiveRoomCode().catch(() => null);
       if (!saved || cancelled) return;
       await joinRoom(saved);
     })();

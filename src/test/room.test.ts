@@ -12,6 +12,7 @@ import {
 import { mapConstellationDocument, roomConstellationToCustom } from "../features/rooms/roomMapper";
 import { roomConstellationDocumentSchema } from "../features/rooms/roomSchemas";
 import { initialRoomState, roomReducer } from "../features/rooms/roomReducer";
+import { roomErrorMessage } from "../features/rooms/roomError";
 import { sharedConstellationDocumentId } from "../features/rooms/sharedDocumentId";
 import type { SkyAim } from "../features/starfield/skyController";
 import { SkyController } from "../features/starfield/skyController";
@@ -169,6 +170,28 @@ describe("room reducer purity", () => {
     expect(state.status).toBe("disconnected");
     expect(state.roomCode).toBeNull();
     expect(state.joinDraftCode).toBe("ABC234");
+  });
+});
+
+describe("room errors", () => {
+  it("surfaces actionable Firebase configuration and network failures", () => {
+    expect(roomErrorMessage("create", { code: "permission-denied" })).toBe(
+      "Firebase denied the room request. Deploy the current Firestore rules.",
+    );
+    expect(roomErrorMessage("create", { code: "auth/operation-not-allowed" })).toBe(
+      "Anonymous Firebase sign-in is disabled.",
+    );
+    expect(roomErrorMessage("join", { code: "unavailable" })).toBe(
+      "Firebase is unreachable. Check the network and try again.",
+    );
+  });
+
+  it("keeps operation-specific fallback messages", () => {
+    expect(roomErrorMessage("create", new Error("unknown"))).toBe("Could not create a room. Try again.");
+    expect(roomErrorMessage("join", new Error("room_not_found"))).toBe("Room not found.");
+    expect(roomErrorMessage("sync", new Error("unknown"))).toBe(
+      "Constellation created locally, but room sync failed.",
+    );
   });
 });
 
