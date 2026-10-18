@@ -2,6 +2,8 @@ import type { GenerationErrorCode } from "../src/domain/generation";
 import { drawingRequestSchema, drawingResponseSchema, MAX_REQUEST_BYTES } from "../src/features/generation/generationSchemas";
 import type { SegmentSubject } from "./segmentation/contract";
 import { defaultSegmentSubject, SegmentSubjectError } from "./segmentation/segmentSubject";
+import { buildServerGenerationDebug } from "./buildGenerationDebug";
+import { buildPipelineStagePngs } from "./debugStages";
 import { strokesFromMask } from "./skeleton";
 
 export type { SegmentSubject };
@@ -49,19 +51,31 @@ export async function handleGenerateConstellation(
   if (!parsed.success) return errorResponse(400, "invalid_request");
 
   try {
-    const { name, story, mask } = await segment(parsed.data.image, parsed.data.prompt);
+    const segmented = await segment(parsed.data.image, parsed.data.prompt);
+    const { name, story, mask, foundPng, maskPng, sam3 } = segmented;
     const strokes = strokesFromMask(mask);
+    const stages = buildPipelineStagePngs(mask, foundPng, maskPng);
     const drawing = drawingResponseSchema.safeParse({
       name: name.trim(),
       story: story.trim(),
       strokes,
     });
-    if (!strokes || !drawing.success) return errorResponse(502, "generation_failed");
+    if (!strokes || !drawing.success || !stages) return errorResponse(502, "generation_failed");
+    const debug = buildServerGenerationDebug(
+      mask,
+      sam3,
+      parsed.data.prompt,
+      drawing.data.strokes,
+      drawing.data.name.trim(),
+      drawing.data.story.trim(),
+    );
     return Response.json(
       {
         name: drawing.data.name.trim(),
         story: drawing.data.story.trim(),
         strokes: drawing.data.strokes,
+        stages,
+        debug,
       },
       { headers: corsHeaders() },
     );

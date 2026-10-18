@@ -1,6 +1,13 @@
 import { CANDIDATE_MIN } from "../../domain/constants";
 import type { CustomConstellation } from "../../domain/constellation";
-import type { DrawingRequest, DrawingResponse, SubjectImage } from "../../domain/generation";
+import type {
+  DrawingRequest,
+  DrawingResponse,
+  GenerationClientTrace,
+  GenerationServerDebug,
+  PipelineStageImages,
+  SubjectImage,
+} from "../../domain/generation";
 import { snapStrokesToStars, type SnapStar } from "./snapStrokesToStars";
 
 export type CreationResult =
@@ -9,7 +16,13 @@ export type CreationResult =
   | { kind: "segmentation-unavailable" }
   | { kind: "segmentation-model-unavailable" }
   | { kind: "failed" }
-  | { kind: "constellation"; constellation: CustomConstellation };
+  | {
+      kind: "constellation";
+      constellation: CustomConstellation;
+      stageImages?: PipelineStageImages;
+      serverDebug?: GenerationServerDebug;
+      clientTrace: GenerationClientTrace;
+    };
 
 function serverUnreachable(error: unknown): boolean {
   const message = error instanceof Error ? error.message : "";
@@ -27,6 +40,9 @@ export async function createConstellation(input: {
   image: SubjectImage;
   prompt?: string;
   candidates: readonly SnapStar[];
+  viewportWidth: number;
+  viewportHeight: number;
+  fov: number;
   request: (body: DrawingRequest) => Promise<DrawingResponse>;
 }): Promise<CreationResult> {
   if (input.candidates.length < CANDIDATE_MIN) return { kind: "zoom-out" };
@@ -39,7 +55,7 @@ export async function createConstellation(input: {
         ...(trimmedPrompt ? { prompt: trimmedPrompt } : {}),
       });
       const segments = snapStrokesToStars(response.strokes, input.candidates);
-      if (segments) {
+      if (segments && segments.length > 0) {
         const name = response.name.trim();
         return {
           kind: "constellation",
@@ -50,6 +66,15 @@ export async function createConstellation(input: {
             story: response.story.trim(),
             segments,
             source: "sam3",
+          },
+          ...(response.stages ? { stageImages: response.stages } : {}),
+          ...(response.debug ? { serverDebug: response.debug } : {}),
+          clientTrace: {
+            candidateCount: input.candidates.length,
+            fov: input.fov,
+            viewportWidth: input.viewportWidth,
+            viewportHeight: input.viewportHeight,
+            segments,
           },
         };
       }

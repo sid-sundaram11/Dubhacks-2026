@@ -1,4 +1,4 @@
-import { CANDIDATE_CELL_PX, CANDIDATE_MAX, FOV_MIN } from "../../domain/constants";
+import { CANDIDATE_CELL_PX, FOV_MIN } from "../../domain/constants";
 import { clamp } from "../../domain/math";
 import type { SnapStar } from "./snapStrokesToStars";
 
@@ -87,7 +87,7 @@ export function selectCandidates(
   }
 
   chosen.sort((a, b) => b.brightness - a.brightness || a.id - b.id);
-  return chosen.slice(0, CANDIDATE_MAX).map((star) => ({
+  return chosen.map((star) => ({
     id: star.id,
     x: clamp(star.normalizedX, 0, 1),
     y: clamp(star.normalizedY, 0, 1),

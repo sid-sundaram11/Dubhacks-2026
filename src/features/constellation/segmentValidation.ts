@@ -1,4 +1,3 @@
-import { MAX_SEGMENTS } from "../../domain/constants";
 import type { ConstellationSegment } from "../../domain/constellation";
 
 export function normalizeSegments(segments: readonly ConstellationSegment[]): ConstellationSegment[] {
@@ -12,7 +11,6 @@ export function normalizeSegments(segments: readonly ConstellationSegment[]): Co
     if (seen.has(key)) continue;
     seen.add(key);
     result.push(segment);
-    if (result.length === MAX_SEGMENTS) break;
   }
   return result;
 }

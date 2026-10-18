@@ -15,6 +15,7 @@ from segment import (
     decode_subject_image,
     largest_connected_component,
     mask_to_png_base64,
+    overlay_png_base64,
     pick_best_instance,
     resize_long_edge,
 )
@@ -29,10 +30,12 @@ class FakeSegmenter:
         w, h = image.size
         mask = np.zeros((h, w), dtype=np.uint8)
         mask[h // 4 : 3 * h // 4, w // 4 : 3 * w // 4] = 1
+        image_rgb = image.convert("RGB")
         return SegmentOutput(
             width=w,
             height=h,
             mask_png_base64=mask_to_png_base64(mask),
+            overlay_png_base64=overlay_png_base64(image_rgb, mask),
             label=prompt or "object",
             confidence=0.91,
         )
@@ -77,6 +80,10 @@ def test_segment_success(client):
     assert data["height"] == 96
     assert data["label"] == "circle"
     assert data["confidence"] == 0.91
+    overlay_bytes = base64.b64decode(data["overlay"])
+    overlay_img = Image.open(io.BytesIO(overlay_bytes))
+    assert overlay_img.mode == "RGB"
+    assert overlay_img.size == (128, 96)
     mask_bytes = base64.b64decode(data["mask"])
     mask_img = Image.open(io.BytesIO(mask_bytes))
     assert mask_img.mode == "L"

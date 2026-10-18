@@ -1,6 +1,6 @@
 import { GENERATION_ATTEMPT_MS } from "../../domain/constants";
 import type { DrawingRequest, DrawingResponse } from "../../domain/generation";
-import { drawingResponseSchema } from "./generationSchemas";
+import { drawingApiResponseSchema, drawingResponseSchema } from "./generationSchemas";
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE ?? "http://127.0.0.1:8787";
 
@@ -23,12 +23,15 @@ export async function requestDrawing(body: DrawingRequest): Promise<DrawingRespo
       throw new Error(code === "segmentation_model_unavailable" ? code : "segmentation_unavailable");
     }
     if (!response.ok) throw new Error("generation_failed");
-    const parsed = drawingResponseSchema.safeParse(payload);
-    if (!parsed.success) throw new Error("invalid_response");
+    const drawing = drawingResponseSchema.safeParse(payload);
+    if (!drawing.success) throw new Error("invalid_response");
+    const extra = drawingApiResponseSchema.safeParse(payload);
     return {
-      name: parsed.data.name.trim(),
-      story: parsed.data.story.trim(),
-      strokes: parsed.data.strokes,
+      name: drawing.data.name.trim(),
+      story: drawing.data.story.trim(),
+      strokes: drawing.data.strokes,
+      ...(extra.success && extra.data.stages ? { stages: extra.data.stages } : {}),
+      ...(extra.success && extra.data.debug ? { debug: extra.data.debug } : {}),
     };
   } finally {
     clearTimeout(timer);

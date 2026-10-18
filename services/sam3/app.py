@@ -91,6 +91,7 @@ async def segment(body: SegmentRequest) -> JSONResponse:
             "width": result.width,
             "height": result.height,
             "mask": result.mask_png_base64,
+            "overlay": result.overlay_png_base64,
             "label": result.label,
             "confidence": result.confidence,
         },

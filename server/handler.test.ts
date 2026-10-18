@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { MASK_SIZE } from "../src/domain/constants";
 import { MAX_REQUEST_BYTES } from "../src/features/generation/generationSchemas";
+import { buildServerGenerationDebug } from "./buildGenerationDebug";
+import { buildPipelineStagePngs } from "./debugStages";
 import { handleGenerateConstellation } from "./handler";
 import { SegmentSubjectError } from "./segmentation/segmentSubject";
 import { strokesFromMask } from "./skeleton";
@@ -28,26 +30,36 @@ function fill(mask: number[][], x0: number, y0: number, x1: number, y1: number):
 
 function plusMask(): number[][] {
   const mask = blank();
-  fill(mask, 8, 20, 39, 27);
-  fill(mask, 20, 8, 27, 39);
+  fill(mask, 16, 40, 78, 54);
+  fill(mask, 40, 16, 54, 78);
   return mask;
 }
 
 const image = { mimeType: "image/jpeg" as const, data: Buffer.from("constellation-photo").toString("base64") };
+const STAGE_PLACEHOLDER = "aGVsbG9Xb3JsZDEyMzQ=";
+
+const SAM3_META = { maskWidth: 128, maskHeight: 96, label: "object", confidence: 0.91 };
+
+function segmentFromMask(mask: number[][], name: string, story: string) {
+  const stages = buildPipelineStagePngs(mask, STAGE_PLACEHOLDER, STAGE_PLACEHOLDER)!;
+  return { name, story, mask, foundPng: stages.found, maskPng: stages.mask, sam3: SAM3_META };
+}
 
 describe("generate constellation handler", () => {
   it("turns a subject mask into skeleton strokes and hides model failures", async () => {
     const mask = plusMask();
-    const response = await handleGenerateConstellation(request({ image }), async () => ({
-      name: "Night Heron",
-      story: "A heron stands against the sky.",
-      mask,
-    }));
+    const response = await handleGenerateConstellation(request({ image }), async () =>
+      segmentFromMask(mask, "Night Heron", "A heron stands against the sky."),
+    );
     expect(response.status).toBe(200);
+    const expectedStages = buildPipelineStagePngs(mask, STAGE_PLACEHOLDER, STAGE_PLACEHOLDER);
+    const strokes = strokesFromMask(mask)!;
     await expect(response.json()).resolves.toEqual({
       name: "Night Heron",
       story: "A heron stands against the sky.",
-      strokes: strokesFromMask(mask),
+      strokes,
+      stages: expectedStages,
+      debug: buildServerGenerationDebug(mask, SAM3_META, undefined, strokes, "Night Heron", "A heron stands against the sky."),
     });
 
     const failed = await handleGenerateConstellation(request({ image }), async () => {
@@ -84,7 +96,7 @@ describe("generate constellation handler", () => {
     const mask = plusMask();
     const response = await handleGenerateConstellation(request({ image, prompt: "heron" }), async (_image, prompt) => {
       expect(prompt).toBe("heron");
-      return { name: "Heron", story: "A heron waits among the fixed stars.", mask };
+      return segmentFromMask(mask, "Heron", "A heron waits among the fixed stars.");
     });
     expect(response.status).toBe(200);
   });

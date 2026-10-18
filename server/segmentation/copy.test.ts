@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { MASK_SIZE } from "../../src/domain/constants";
 import { maskResponseSchema } from "../../src/features/generation/generationSchemas";
 import { nameAndStoryForSegmentation } from "./copy";
 
 function assertCopyValid(name: string, story: string): void {
-  const mask = Array.from({ length: 48 }, () => Array.from({ length: 48 }, () => 0));
+  const mask = Array.from({ length: MASK_SIZE }, () => Array.from({ length: MASK_SIZE }, () => 0));
   expect(maskResponseSchema.safeParse({ name, story, mask }).success).toBe(true);
 }
 

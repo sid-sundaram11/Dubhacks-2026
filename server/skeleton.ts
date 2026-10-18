@@ -1,10 +1,9 @@
-import { MASK_SIZE, MAX_SEGMENTS, MIN_SEGMENTS } from "../src/domain/constants";
+import { MASK_SIZE } from "../src/domain/constants";
 import type { GeneratedStroke, StrokePoint } from "../src/domain/constellation";
 import { clamp } from "../src/domain/math";
 
-const MARGIN = 0.08;
+const MARGIN = 0;
 const FIT_RESIDUAL = 2;
-const SPUR_MIN_PIXELS = 8;
 
 interface Point {
   x: number;
@@ -200,11 +199,6 @@ function perpendicular(point: Point, line: { mx: number; my: number; dx: number;
   return Math.abs((point.x - line.mx) * line.dy - (point.y - line.my) * line.dx);
 }
 
-function project(point: Point, line: { mx: number; my: number; dx: number; dy: number }): Point {
-  const t = (point.x - line.mx) * line.dx + (point.y - line.my) * line.dy;
-  return { x: line.mx + t * line.dx, y: line.my + t * line.dy };
-}
-
 function fitPolyline(points: readonly Point[]): Point[] {
   if (points.length <= 2) return [...points];
   const line = fitLine(points);
@@ -223,7 +217,8 @@ function fitPolyline(points: readonly Point[]): Point[] {
     const right = fitPolyline(points.slice(maxIndex));
     return [...left.slice(0, -1), ...right];
   }
-  return [project(points[0]!, line), project(points[points.length - 1]!, line)];
+  // Keep the real node pixels so every branch that shares a joint meets at the same point.
+  return [points[0]!, points[points.length - 1]!];
 }
 
 function normalizePoint(point: Point, width: number, height: number): StrokePoint {
@@ -244,13 +239,7 @@ function pointsToStrokes(points: readonly Point[], width: number, height: number
     compact.push(next);
   }
   if (compact.length < 2) return [];
-  const strokes: GeneratedStroke[] = [];
-  for (let index = 0; index < compact.length - 1; index += 6) {
-    const slice = compact.slice(index, Math.min(compact.length, index + 7));
-    if (slice.length >= 2) strokes.push({ points: slice });
-    if (index + 6 >= compact.length - 1) break;
-  }
-  return strokes;
+  return [{ points: compact }];
 }
 
 /** Trace endpoints and junctions, drop short spurs, and replace each branch with best-fit lines. */
@@ -345,13 +334,38 @@ export function traceFittedStrokes(binary: Uint8Array, width: number, height: nu
     }
   }
 
+  const representative = new Map<string, Point>();
+  const members = new Map<string, Point[]>();
+  for (const pixel of pixels) {
+    const id = nodeId(pixel);
+    if (id == null) continue;
+    const group = members.get(id);
+    if (group) group.push(pixel);
+    else members.set(id, [pixel]);
+  }
+  for (const [id, group] of members) {
+    const cx = group.reduce((sum, pixel) => sum + pixel.x, 0) / group.length;
+    const cy = group.reduce((sum, pixel) => sum + pixel.y, 0) / group.length;
+    let best = group[0]!;
+    let bestDistance = Infinity;
+    for (const pixel of group) {
+      const distance = Math.hypot(pixel.x - cx, pixel.y - cy);
+      if (distance < bestDistance) {
+        best = pixel;
+        bestDistance = distance;
+      }
+    }
+    representative.set(id, best);
+  }
+
   const endpoints = new Set<string>();
   const junctions = new Set<string>();
   const strokes: GeneratedStroke[] = [];
   for (const branch of branches) {
-    const spurEnds = (branch.startEndpoint ? 1 : 0) + (branch.endEndpoint ? 1 : 0);
-    if (spurEnds === 1 && branch.pixels.length < SPUR_MIN_PIXELS) continue;
-    const produced = pointsToStrokes(fitPolyline(branch.pixels), width, height);
+    const start = representative.get(branch.startId) ?? branch.pixels[0]!;
+    const end = representative.get(branch.endId) ?? branch.pixels[branch.pixels.length - 1]!;
+    const interior = branch.pixels.slice(1, -1);
+    const produced = pointsToStrokes(fitPolyline([start, ...interior, end]), width, height);
     if (produced.length === 0) continue;
     (branch.startEndpoint ? endpoints : junctions).add(branch.startId);
     (branch.endEndpoint ? endpoints : junctions).add(branch.endId);
@@ -360,39 +374,26 @@ export function traceFittedStrokes(binary: Uint8Array, width: number, height: nu
   return { endpoints: endpoints.size, junctions: junctions.size, strokes };
 }
 
-export function graphFromMask(mask: readonly (readonly number[])[]): FittedSkeleton | null {
+export function preparedBinaryFromMask(mask: readonly (readonly number[])[]): Uint8Array | null {
   if (mask.length !== MASK_SIZE || mask.some((row) => row.length !== MASK_SIZE)) return null;
   const filled = new Uint8Array(MASK_SIZE * MASK_SIZE);
   for (let y = 0; y < MASK_SIZE; y += 1) {
     for (let x = 0; x < MASK_SIZE; x += 1) filled[y * MASK_SIZE + x] = mask[y]?.[x] ? 1 : 0;
   }
   const binary = largestComponent(erode(dilate(filled, MASK_SIZE, MASK_SIZE), MASK_SIZE, MASK_SIZE), MASK_SIZE, MASK_SIZE);
-  if (!binary.some((value) => value === 1)) return { endpoints: 0, junctions: 0, strokes: [] };
-  return traceFittedStrokes(skeletonize(binary, MASK_SIZE, MASK_SIZE), MASK_SIZE, MASK_SIZE);
+  if (!binary.some((value) => value === 1)) return null;
+  return binary;
 }
 
-function strokeLength(stroke: GeneratedStroke): number {
-  let length = 0;
-  for (let index = 1; index < stroke.points.length; index += 1) {
-    const previous = stroke.points[index - 1]!;
-    const current = stroke.points[index]!;
-    length += Math.hypot(current.x - previous.x, current.y - previous.y);
-  }
-  return length;
+export function graphFromMask(mask: readonly (readonly number[])[]): FittedSkeleton | null {
+  if (mask.length !== MASK_SIZE || mask.some((row) => row.length !== MASK_SIZE)) return null;
+  const binary = preparedBinaryFromMask(mask);
+  if (!binary) return { endpoints: 0, junctions: 0, strokes: [] };
+  return traceFittedStrokes(skeletonize(binary, MASK_SIZE, MASK_SIZE), MASK_SIZE, MASK_SIZE);
 }
 
 export function strokesFromMask(mask: readonly (readonly number[])[]): GeneratedStroke[] | null {
   const graph = graphFromMask(mask);
   if (!graph || graph.strokes.length === 0) return null;
-  const ranked = [...graph.strokes].sort((a, b) => strokeLength(b) - strokeLength(a));
-  const kept: GeneratedStroke[] = [];
-  let edges = 0;
-  for (const stroke of ranked) {
-    const count = stroke.points.length - 1;
-    if (count <= 0 || edges + count > MAX_SEGMENTS) continue;
-    kept.push(stroke);
-    edges += count;
-  }
-  if (edges < MIN_SEGMENTS) return null;
-  return kept;
+  return graph.strokes;
 }

@@ -28,7 +28,7 @@ function edgeVectors(strokes: readonly GeneratedStroke[]): Array<{ x: number; y:
 describe("skeleton constellations", () => {
   it("thins a horizontal bar to one nearly horizontal segment", () => {
     const mask = blank();
-    fill(mask, 6, 20, 41, 27);
+    fill(mask, 12, 40, 83, 54);
     const graph = graphFromMask(mask);
     expect(graph?.endpoints).toBe(2);
     expect(graph?.junctions).toBe(0);
@@ -42,19 +42,24 @@ describe("skeleton constellations", () => {
 
   it("turns a plus into one junction, four endpoints, and four segments", () => {
     const mask = blank();
-    fill(mask, 8, 20, 39, 27);
-    fill(mask, 20, 8, 27, 39);
+    fill(mask, 16, 40, 78, 54);
+    fill(mask, 40, 16, 54, 78);
     const graph = graphFromMask(mask);
     expect(graph?.junctions).toBe(1);
     expect(graph?.endpoints).toBe(4);
     expect(graph?.strokes).toHaveLength(4);
     expect(strokesFromMask(mask)).toHaveLength(4);
+    const pointKey = (point: { x: number; y: number }) => `${point.x.toFixed(4)},${point.y.toFixed(4)}`;
+    const shared = graph!.strokes
+      .map((stroke) => new Set(stroke.points.map(pointKey)))
+      .reduce((common, keys) => new Set([...common].filter((key) => keys.has(key))));
+    expect(shared.size).toBe(1);
   });
 
   it("splits an L into perpendicular best-fit lines", () => {
     const mask = blank();
-    fill(mask, 10, 8, 16, 34);
-    fill(mask, 10, 28, 40, 34);
+    fill(mask, 20, 16, 32, 68);
+    fill(mask, 20, 56, 80, 68);
     const graph = graphFromMask(mask);
     const vectors = edgeVectors(graph?.strokes ?? []);
     expect(vectors.length).toBeGreaterThanOrEqual(2);
@@ -66,7 +71,7 @@ describe("skeleton constellations", () => {
     expect(diagonalOnly).toBe(false);
   });
 
-  it("drops a short spur and keeps only the largest blob", () => {
+  it("keeps short spurs and only the largest blob on the mask grid", () => {
     const width = 40;
     const binary = new Uint8Array(width * width);
     const mark = (x: number, y: number) => {
@@ -80,23 +85,23 @@ describe("skeleton constellations", () => {
     mark(28, 22);
     mark(28, 23);
     const graph = traceFittedStrokes(binary, width, width);
-    const tipX = 0.08 + (28 / (width - 1)) * 0.84;
-    const tipY = 0.08 + (23 / (width - 1)) * 0.84;
+    const tipX = 28 / (width - 1);
+    const tipY = 23 / (width - 1);
     const touchesSpur = graph.strokes.some((stroke) =>
       stroke.points.some((point) => Math.hypot(point.x - tipX, point.y - tipY) < 0.04),
     );
-    expect(touchesSpur).toBe(false);
-    expect(graph.endpoints).toBe(4);
+    expect(touchesSpur).toBe(true);
+    expect(graph.endpoints).toBeGreaterThanOrEqual(4);
 
     const mask = blank();
-    fill(mask, 4, 20, 28, 27);
-    fill(mask, 40, 2, 45, 8);
+    fill(mask, 8, 40, 56, 54);
+    fill(mask, 80, 4, 90, 16);
     const separated = graphFromMask(mask);
     expect(separated?.strokes.length).toBeGreaterThan(0);
     for (const stroke of separated?.strokes ?? []) {
       for (const point of stroke.points) {
         expect(point.x).toBeLessThan(0.7);
-        expect(point.y).toBeGreaterThan(0.3);
+        expect(point.y).toBeGreaterThan(0.2);
       }
     }
   });

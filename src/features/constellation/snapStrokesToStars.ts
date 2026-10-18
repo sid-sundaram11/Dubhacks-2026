@@ -1,4 +1,4 @@
-import { MIN_SEGMENTS, SNAP_RADII } from "../../domain/constants";
+import { SNAP_RADII } from "../../domain/constants";
 import type { ConstellationSegment, GeneratedStroke } from "../../domain/constellation";
 import { normalizeSegments } from "./segmentValidation";
 
@@ -28,39 +28,64 @@ function rank(point: { x: number; y: number }, stars: readonly SnapStar[], radiu
   return ranked;
 }
 
-function snapAtRadius(strokes: readonly GeneratedStroke[], stars: readonly SnapStar[], radius: number): ConstellationSegment[] | null {
-  const used = new Map<number, number>();
-  const segments: ConstellationSegment[] = [];
-  for (const stroke of strokes) {
-    const matched: number[] = [];
-    let previous: number | null = null;
-    let failed = false;
-    for (const point of stroke.points) {
-      const choice = rank(point, stars, radius, used).find((candidate) => candidate.star.id !== previous);
-      if (!choice) {
-        failed = true;
-        break;
-      }
-      matched.push(choice.star.id);
-      previous = choice.star.id;
-    }
-    if (failed || matched.length < 2) continue;
-    for (let i = 1; i < matched.length; i += 1) {
-      segments.push({ fromStarId: matched[i - 1]!, toStarId: matched[i]! });
-    }
-    for (const id of matched) used.set(id, (used.get(id) ?? 0) + 1);
+function pointKey(point: { x: number; y: number }): string {
+  return `${point.x.toFixed(4)},${point.y.toFixed(4)}`;
+}
+
+function chooseStar(
+  point: { x: number; y: number },
+  stars: readonly SnapStar[],
+  used: Map<number, number>,
+  avoid: number | null,
+): number | null {
+  for (const radius of SNAP_RADII) {
+    const candidates = rank(point, stars, radius, used).filter((candidate) => candidate.star.id !== avoid);
+    const unused = candidates.find((candidate) => (used.get(candidate.star.id) ?? 0) === 0);
+    if (unused) return unused.star.id;
+    if (candidates[0]) return candidates[0].star.id;
   }
-  const normalized = normalizeSegments(segments);
-  return normalized.length >= MIN_SEGMENTS ? normalized : null;
+  const widest = SNAP_RADII[SNAP_RADII.length - 1] ?? 0;
+  const fallback = rank(point, stars, widest, used).find((candidate) => candidate.star.id !== avoid);
+  return fallback?.star.id ?? rank(point, stars, widest, used)[0]?.star.id ?? null;
 }
 
 export function snapStrokesToStars(
   strokes: readonly GeneratedStroke[],
   stars: readonly SnapStar[],
 ): ConstellationSegment[] | null {
-  for (const radius of SNAP_RADII) {
-    const snapped = snapAtRadius(strokes, stars, radius);
-    if (snapped) return snapped;
+  const jointStars = new Map<string, number>();
+  const used = new Map<number, number>();
+
+  for (const stroke of strokes) {
+    for (const point of stroke.points) {
+      const key = pointKey(point);
+      if (jointStars.has(key)) continue;
+      const chosen = chooseStar(point, stars, used, null);
+      if (chosen == null) continue;
+      jointStars.set(key, chosen);
+      used.set(chosen, (used.get(chosen) ?? 0) + 1);
+    }
   }
-  return null;
+
+  const segments: ConstellationSegment[] = [];
+  for (const stroke of strokes) {
+    let previous: number | null = null;
+    for (const point of stroke.points) {
+      const key = pointKey(point);
+      let starId = jointStars.get(key);
+      if (starId == null) {
+        starId = chooseStar(point, stars, used, previous) ?? undefined;
+        if (starId == null) continue;
+      } else if (previous != null && starId === previous) {
+        const alternate = chooseStar(point, stars, used, previous);
+        if (alternate != null) starId = alternate;
+      }
+      if (previous != null && previous !== starId) {
+        segments.push({ fromStarId: previous, toStarId: starId });
+      }
+      previous = starId;
+    }
+  }
+  const normalized = normalizeSegments(segments);
+  return normalized.length > 0 ? normalized : null;
 }

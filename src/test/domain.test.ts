@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { appReducer, initialAppState } from "../shell/appReducer";
-import { FOV_MAX, FOV_MIN, ORION_FALLBACK_IDS } from "../domain/constants";
+import { FOV_MAX, FOV_MIN, MASK_SIZE, ORION_FALLBACK_IDS } from "../domain/constants";
 import { celestialToCartesian } from "../features/catalog/celestialCoordinates";
 import { displayName } from "../features/catalog/displayName";
 import { reduceCatalog } from "../features/catalog/reduceCatalog";
@@ -11,7 +11,7 @@ import { revealedSegments } from "../features/constellation/animation";
 import { frameCoordinate, minZoomFraction, selectCandidates, selectMinZoomCandidates, type ProjectedStar } from "../features/constellation/candidateSelection";
 import { createConstellation } from "../features/constellation/createConstellation";
 import { snapStrokesToStars, type SnapStar } from "../features/constellation/snapStrokesToStars";
-import { drawingRequestSchema, drawingResponseSchema } from "../features/generation/generationSchemas";
+import { drawingApiResponseSchema, drawingRequestSchema, drawingResponseSchema } from "../features/generation/generationSchemas";
 import { layoutText } from "../features/share/bitmapFont";
 import { projectToScreen } from "../features/starfield/projection";
 import { SkyController } from "../features/starfield/skyController";
@@ -117,7 +117,7 @@ describe("sky aim", () => {
 });
 
 describe("candidates and snapping", () => {
-  it("keeps one bright star per cell and caps the list", () => {
+  it("keeps one bright star per cell without capping the list", () => {
     const stars: ProjectedStar[] = Array.from({ length: 200 }, (_, index) => ({
       id: index + 1,
       x: (index % 10) * 10,
@@ -132,7 +132,7 @@ describe("candidates and snapping", () => {
     }));
     const chosen = selectCandidates(stars, 100, 200);
     expect(new Set(chosen.map((star) => star.id)).size).toBe(chosen.length);
-    expect(chosen.length).toBeLessThanOrEqual(150);
+    expect(chosen.length).toBeGreaterThan(20);
     expect(chosen.every((star) => star.x >= 0 && star.x <= 1 && star.brightness >= 0 && star.brightness <= 1)).toBe(true);
   });
 
@@ -151,6 +151,73 @@ describe("candidates and snapping", () => {
     expect(snapped?.[0]).toEqual({ fromStarId: 1, toStarId: 3 });
     expect(snapped?.length).toBeGreaterThanOrEqual(4);
   });
+
+  it("picks a different star along a stroke when the nearest match would repeat", () => {
+    const snapped = snapStrokesToStars(
+      [{ points: [{ x: 0.5, y: 0.5 }, { x: 0.51, y: 0.5 }, { x: 0.9, y: 0.5 }] }],
+      [
+        { id: 1, x: 0.5, y: 0.5, brightness: 1, magnitude: 1 },
+        { id: 2, x: 0.51, y: 0.5, brightness: 0.9, magnitude: 2 },
+        { id: 3, x: 0.9, y: 0.5, brightness: 1, magnitude: 1 },
+      ],
+    );
+    expect(snapped).toEqual([
+      { fromStarId: 1, toStarId: 2 },
+      { fromStarId: 2, toStarId: 3 },
+    ]);
+  });
+
+  it("keeps every arm attached to one shared joint", () => {
+    const joint = { x: 0.5, y: 0.5 };
+    const snapped = snapStrokesToStars(
+      [
+        { points: [joint, { x: 0.5, y: 0.2 }] },
+        { points: [joint, { x: 0.5, y: 0.8 }] },
+        { points: [joint, { x: 0.2, y: 0.5 }] },
+        { points: [joint, { x: 0.8, y: 0.5 }] },
+      ],
+      [
+        { id: 1, x: 0.5, y: 0.5, brightness: 1, magnitude: 1 },
+        { id: 2, x: 0.5, y: 0.2, brightness: 1, magnitude: 2 },
+        { id: 3, x: 0.5, y: 0.8, brightness: 1, magnitude: 2 },
+        { id: 4, x: 0.2, y: 0.5, brightness: 1, magnitude: 2 },
+        { id: 5, x: 0.8, y: 0.5, brightness: 1, magnitude: 2 },
+      ],
+    );
+    expect(snapped).toEqual([
+      { fromStarId: 1, toStarId: 2 },
+      { fromStarId: 1, toStarId: 3 },
+      { fromStarId: 1, toStarId: 4 },
+      { fromStarId: 1, toStarId: 5 },
+    ]);
+  });
+});
+
+const TEST_STAGE_PNG = "aGVsbG9Xb3JsZDEyMzQ=";
+const testStageImages = () => ({
+  found: TEST_STAGE_PNG,
+  mask: TEST_STAGE_PNG,
+  grid: TEST_STAGE_PNG,
+  skeleton: TEST_STAGE_PNG,
+  nodes: TEST_STAGE_PNG,
+});
+
+const testServerDebug = () => ({
+  sam3: { maskWidth: 64, maskHeight: 48, label: "dog", confidence: 0.9 },
+  maskGrid: Array.from({ length: MASK_SIZE }, () => Array.from({ length: MASK_SIZE }, () => 0)),
+  skeleton: {
+    endpoints: 2,
+    junctions: 1,
+    fittedStrokeCount: 3,
+    outputStrokeCount: 2,
+    outputEdgeCount: 4,
+  },
+  name: "Test",
+  story: "A test runs through the stars.",
+  strokes: [
+    { points: [{ x: 0.2, y: 0.2 }, { x: 0.8, y: 0.8 }] },
+    { points: [{ x: 0.2, y: 0.8 }, { x: 0.8, y: 0.2 }] },
+  ],
 });
 
 describe("generation contract", () => {
@@ -174,6 +241,22 @@ describe("generation contract", () => {
       }).success,
     ).toBe(true);
     expect(
+      drawingApiResponseSchema.safeParse({
+        name: "Raised Dragon",
+        story: "A dragon lifts its wings.",
+        strokes: fourEdges,
+        stages: testStageImages(),
+        debug: testServerDebug(),
+      }).success,
+    ).toBe(true);
+    expect(
+      drawingApiResponseSchema.safeParse({
+        name: "Raised Dragon",
+        story: "A dragon lifts its wings.",
+        strokes: fourEdges,
+      }).success,
+    ).toBe(true);
+    expect(
       drawingResponseSchema.safeParse({
         name: "Nope",
         story: "Two sentences. Not allowed.",
@@ -185,6 +268,7 @@ describe("generation contract", () => {
 
 describe("constellation creation", () => {
   const image = { mimeType: "image/jpeg" as const, data: Buffer.from("heart-photo").toString("base64") };
+  const sky = { viewportWidth: 400, viewportHeight: 300, fov: 60 };
   const strokes = [
     {
       points: [
@@ -205,8 +289,15 @@ describe("constellation creation", () => {
     });
     const created = await createConstellation({
       image,
+      ...sky,
       candidates,
-      request: async () => ({ name: "Bright Heart", story: "A heart hangs in the stars.", strokes }),
+      request: async () => ({
+        name: "Bright Heart",
+        story: "A heart hangs in the stars.",
+        strokes,
+        stages: testStageImages(),
+        debug: testServerDebug(),
+      }),
     });
     expect(created.kind).toBe("constellation");
     if (created.kind === "constellation") {
@@ -216,6 +307,7 @@ describe("constellation creation", () => {
 
     const failed = await createConstellation({
       image,
+      ...sky,
       candidates: Array.from({ length: 40 }, (_, index) => ({ id: index + 1, x: 0, y: 0, brightness: 0.2, magnitude: 5 })),
       request: async () => {
         throw new Error("down");
@@ -225,6 +317,7 @@ describe("constellation creation", () => {
 
     const unreachable = await createConstellation({
       image,
+      ...sky,
       candidates,
       request: async () => {
         throw new Error("fetch failed: Could not connect to the server.");
@@ -235,6 +328,7 @@ describe("constellation creation", () => {
     let calls = 0;
     const segmentationDown = await createConstellation({
       image,
+      ...sky,
       candidates,
       request: async () => {
         calls += 1;
@@ -247,10 +341,17 @@ describe("constellation creation", () => {
     const withPrompt = await createConstellation({
       image,
       prompt: "heron",
+      ...sky,
       candidates,
       request: async (body) => {
         expect(body.prompt).toBe("heron");
-        return { name: "Heron", story: "A heron waits among the fixed stars.", strokes };
+        return {
+          name: "Heron",
+          story: "A heron waits among the fixed stars.",
+          strokes,
+          stages: testStageImages(),
+          debug: testServerDebug(),
+        };
       },
     });
     expect(withPrompt.kind).toBe("constellation");
@@ -259,12 +360,58 @@ describe("constellation creation", () => {
   it("asks for a wider view when fewer than 40 stars are available", async () => {
     const result = await createConstellation({
       image,
+      ...sky,
       candidates: [],
       request: async () => {
         throw new Error("should not be called");
       },
     });
     expect(result.kind).toBe("zoom-out");
+  });
+});
+
+describe("pipeline stage previews", () => {
+  it("stores the generation probe on success and clears it when generation restarts or the drawing is cleared", () => {
+    const probe = {
+      stages: testStageImages(),
+      server: testServerDebug(),
+      client: {
+        candidateCount: 40,
+        fov: 60,
+        viewportWidth: 400,
+        viewportHeight: 300,
+        segments: [{ fromStarId: 1, toStarId: 2 }],
+      },
+    };
+    const constellation = {
+      id: "c-1",
+      prompt: "dog",
+      name: "Sky Dog",
+      story: "A dog runs through the stars.",
+      segments: [],
+      source: "sam3" as const,
+    };
+    let state = appReducer(initialAppState, { type: "generation_started" });
+    expect(state.generationProbe).toBeNull();
+    state = appReducer(state, {
+      type: "generation_finished",
+      constellation,
+      generationProbe: probe,
+      inputPhotoUri: "file:///photo.jpg",
+    });
+    expect(state.generationProbe).toEqual(probe);
+    expect(state.inputPhotoUri).toBe("file:///photo.jpg");
+    state = appReducer(state, { type: "generation_started" });
+    expect(state.generationProbe).toBeNull();
+    state = appReducer(state, {
+      type: "generation_finished",
+      constellation,
+      generationProbe: probe,
+      inputPhotoUri: null,
+    });
+    state = appReducer(state, { type: "confirm_clear" });
+    expect(state.generationProbe).toBeNull();
+    expect(state.inputPhotoUri).toBeNull();
   });
 });
 

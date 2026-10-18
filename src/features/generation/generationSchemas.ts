@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MASK_SIZE, MAX_SEGMENTS, MIN_SEGMENTS, PROMPT_MAX } from "../../domain/constants";
+import { MASK_SIZE, PROMPT_MAX } from "../../domain/constants";
 
 const unit = z.number().finite().min(0).max(1);
 
@@ -37,26 +37,69 @@ export const maskResponseSchema = z
   })
   .superRefine((value, ctx) => refineCopy(value.name, value.story, ctx));
 
-export const drawingResponseSchema = z
-  .object({
-    name: z.string(),
-    story: z.string(),
-    strokes: z.array(z.object({ points: z.array(pointSchema) })),
+export const pipelineStagesSchema = z.object({
+  found: base64,
+  mask: base64,
+  grid: base64,
+  skeleton: base64,
+  nodes: base64,
+});
+
+const maskGridRow = z.array(z.number().int().min(0).max(1)).length(MASK_SIZE);
+
+export const generationServerDebugSchema = z.object({
+  prompt: z.string().optional(),
+  sam3: z.object({
+    maskWidth: z.number().int().positive(),
+    maskHeight: z.number().int().positive(),
+    label: z.string().optional(),
+    confidence: z.number().optional(),
+  }),
+  maskGrid: z.array(maskGridRow).length(MASK_SIZE),
+  skeleton: z.object({
+    endpoints: z.number().int().nonnegative(),
+    junctions: z.number().int().nonnegative(),
+    fittedStrokeCount: z.number().int().nonnegative(),
+    outputStrokeCount: z.number().int().nonnegative(),
+    outputEdgeCount: z.number().int().nonnegative(),
+  }),
+  name: z.string(),
+  story: z.string(),
+  strokes: z.array(z.object({ points: z.array(pointSchema) })),
+});
+
+const drawingBodySchema = z.object({
+  name: z.string(),
+  story: z.string(),
+  strokes: z.array(z.object({ points: z.array(pointSchema) })),
+});
+
+export const drawingResponseSchema = drawingBodySchema.superRefine((value, ctx) => {
+  refineCopy(value.name, value.story, ctx);
+  if (value.strokes.length < 1) {
+    ctx.addIssue({ code: "custom", message: "Use at least one stroke.", path: ["strokes"] });
+  }
+  for (const stroke of value.strokes) {
+    if (stroke.points.length < 2) {
+      ctx.addIssue({ code: "custom", message: "Each stroke needs at least two points.", path: ["strokes"] });
+    }
+  }
+});
+
+export const drawingApiResponseSchema = drawingBodySchema
+  .extend({
+    stages: pipelineStagesSchema.optional(),
+    debug: generationServerDebugSchema.optional(),
   })
   .superRefine((value, ctx) => {
     refineCopy(value.name, value.story, ctx);
-    if (value.strokes.length < 1 || value.strokes.length > MAX_SEGMENTS) {
-      ctx.addIssue({ code: "custom", message: "Use 1–16 strokes.", path: ["strokes"] });
+    if (value.strokes.length < 1) {
+      ctx.addIssue({ code: "custom", message: "Use at least one stroke.", path: ["strokes"] });
     }
-    let edges = 0;
     for (const stroke of value.strokes) {
-      if (stroke.points.length < 2 || stroke.points.length > 7) {
-        ctx.addIssue({ code: "custom", message: "Each stroke needs 2–7 points.", path: ["strokes"] });
+      if (stroke.points.length < 2) {
+        ctx.addIssue({ code: "custom", message: "Each stroke needs at least two points.", path: ["strokes"] });
       }
-      edges += Math.max(0, stroke.points.length - 1);
-    }
-    if (edges < MIN_SEGMENTS || edges > MAX_SEGMENTS) {
-      ctx.addIssue({ code: "custom", message: "Total edges must be 4–16.", path: ["strokes"] });
     }
   });
 

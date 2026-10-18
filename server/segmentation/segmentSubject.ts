@@ -55,7 +55,18 @@ export async function segmentSubject(image: SubjectImage, prompt?: string) {
     throw new SegmentSubjectError("invalid_copy", "failed");
   }
 
-  return parsed.data;
+  const foundPng = sam.overlay?.trim() || sam.mask;
+  return {
+    ...parsed.data,
+    foundPng,
+    maskPng: sam.mask,
+    sam3: {
+      maskWidth: sam.width,
+      maskHeight: sam.height,
+      label: sam.label,
+      confidence: sam.confidence,
+    },
+  };
 }
 
 export const defaultSegmentSubject: SegmentSubject = segmentSubject;

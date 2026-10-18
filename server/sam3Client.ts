@@ -5,6 +5,7 @@ export interface Sam3SegmentResponse {
   width: number;
   height: number;
   mask: string;
+  overlay?: string;
   label?: string;
   confidence?: number;
 }

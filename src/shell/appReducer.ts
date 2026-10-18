@@ -1,4 +1,5 @@
 import type { ConstellationSegment, CustomConstellation } from "../domain/constellation";
+import type { GenerationTrace } from "../domain/generation";
 import type { StarId } from "../domain/star";
 import { appendSegment, undoSegment } from "../features/constellation/editor";
 
@@ -10,6 +11,8 @@ export interface AppState {
   constellation: CustomConstellation | null;
   edited: boolean;
   generationStatus: "idle" | "running" | "needs-zoom";
+  generationProbe: GenerationTrace | null;
+  inputPhotoUri: string | null;
   statusMessage: string;
   skyLocked: boolean;
   confirmClear: boolean;
@@ -23,6 +26,8 @@ export const initialAppState: AppState = {
   constellation: null,
   edited: false,
   generationStatus: "idle",
+  generationProbe: null,
+  inputPhotoUri: null,
   statusMessage: "Drag to look around the sky. Pinch to zoom.",
   skyLocked: false,
   confirmClear: false,
@@ -35,7 +40,12 @@ export type AppAction =
   | { type: "manual_tap"; id: StarId }
   | { type: "toggle_manual" }
   | { type: "generation_started" }
-  | { type: "generation_finished"; constellation: CustomConstellation }
+  | {
+      type: "generation_finished";
+      constellation: CustomConstellation;
+      generationProbe: GenerationTrace | null;
+      inputPhotoUri: string | null;
+    }
   | { type: "generation_failed" }
   | { type: "generation_unreachable" }
   | { type: "generation_segmentation_unavailable" }
@@ -106,6 +116,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         generationStatus: "running",
         skyLocked: true,
         confirmClear: false,
+        generationProbe: null,
         statusMessage: "Drawing your constellation.",
       };
     case "generation_finished":
@@ -117,6 +128,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         edited: false,
         pathStarId: null,
         confirmClear: false,
+        generationProbe: action.generationProbe,
+        inputPhotoUri: action.inputPhotoUri,
         statusMessage: action.constellation.name,
       };
     case "generation_failed":
@@ -124,6 +137,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         generationStatus: "idle",
         skyLocked: false,
+        generationProbe: null,
         statusMessage: "The subject could not be drawn.",
       };
     case "generation_unreachable":
@@ -131,6 +145,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         generationStatus: "idle",
         skyLocked: false,
+        generationProbe: null,
         statusMessage: "The drawing server is not running.",
       };
     case "generation_segmentation_unavailable":
@@ -138,6 +153,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         generationStatus: "idle",
         skyLocked: false,
+        generationProbe: null,
         statusMessage: "The segmentation service is not running.",
       };
     case "generation_segmentation_model_unavailable":
@@ -145,6 +161,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         generationStatus: "idle",
         skyLocked: false,
+        generationProbe: null,
         statusMessage: "SAM3 could not load. Accept access at Hugging Face, then set HF_TOKEN in services/sam3/.env.",
       };
     case "set_status":
@@ -154,6 +171,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         generationStatus: "needs-zoom",
         skyLocked: false,
+        generationProbe: null,
         statusMessage: "Zoom out to include more of the sky.",
       };
     case "undo": {
@@ -177,6 +195,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         edited: false,
         pathStarId: null,
         confirmClear: false,
+        generationProbe: null,
+        inputPhotoUri: null,
         statusMessage: "Drawing cleared.",
       };
     case "cancel_clear":

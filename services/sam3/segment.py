@@ -25,11 +25,17 @@ class SegmentError(Exception):
         self.code = code
 
 
+# Matches app accent #9ecbd0 for step-1 preview tint.
+OVERLAY_TINT_RGB = (158, 203, 208)
+OVERLAY_ALPHA = 0.45
+
+
 @dataclass(frozen=True)
 class SegmentOutput:
     width: int
     height: int
     mask_png_base64: str
+    overlay_png_base64: str
     label: str
     confidence: float
 
@@ -106,6 +112,22 @@ def mask_to_png_base64(mask_uint8: np.ndarray) -> str:
     img = Image.fromarray(out, mode="L")
     buf = io.BytesIO()
     img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def overlay_png_base64(image: Image.Image, mask_uint8: np.ndarray) -> str:
+    """RGB preview: photo with mask region tinted."""
+    rgb = np.array(image.convert("RGB"), dtype=np.float32)
+    tint = np.array(OVERLAY_TINT_RGB, dtype=np.float32)
+    alpha = OVERLAY_ALPHA
+    region = mask_uint8.astype(bool)
+    for channel in range(3):
+        base = rgb[:, :, channel]
+        blended = base * (1.0 - alpha) + tint[channel] * alpha
+        rgb[:, :, channel] = np.where(region, blended, base)
+    out = np.clip(rgb, 0, 255).astype(np.uint8)
+    buf = io.BytesIO()
+    Image.fromarray(out, mode="RGB").save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
@@ -231,6 +253,7 @@ class Sam3Segmenter:
             width=w,
             height=h,
             mask_png_base64=mask_to_png_base64(binary),
+            overlay_png_base64=overlay_png_base64(image, binary),
             label=text,
             confidence=round(confidence, 4),
         )

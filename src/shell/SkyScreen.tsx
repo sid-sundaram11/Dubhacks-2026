@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ComponentRef } from "react";
-import { AccessibilityInfo, Linking, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { AccessibilityInfo, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createAnalytics } from "../domain/analytics";
+import type { PipelineStageImages } from "../domain/generation";
 import { INITIAL_FOV } from "../domain/constants";
 import { appReducer, initialAppState } from "./appReducer";
 import { ActionBar } from "../components/ActionBar";
 import { ConstellationCard } from "../components/ConstellationCard";
 import { GenerationPanel } from "../components/GenerationPanel";
+import { GenerationProbePanel } from "../components/GenerationProbePanel";
 import { ControlButton } from "../components/ControlButton";
 import { palette, serif } from "../theme";
 import { StarDetails } from "../components/StarDetails";
@@ -22,6 +24,13 @@ import { SkyView, type SkyViewHandle } from "../features/starfield/SkyView";
 
 const analytics = createAnalytics();
 const HYG_URL = "https://github.com/astronexus/HYG-Database";
+
+const BOTTOM_STAGE_IMAGES: { key: keyof PipelineStageImages; label: string }[] = [
+  { key: "found", label: "1 Found" },
+  { key: "mask", label: "2 Mask" },
+  { key: "skeleton", label: "3 Skeleton" },
+  { key: "nodes", label: "4 Nodes" },
+];
 
 export function SkyScreen() {
   const insets = useSafeAreaInsets();
@@ -81,6 +90,9 @@ export function SkyScreen() {
       image: photo.image,
       prompt: state.prompt,
       candidates,
+      viewportWidth: size.width,
+      viewportHeight: size.height,
+      fov,
       request: requestDrawing,
     }).then((result) => {
       if (result.kind === "zoom-out") {
@@ -104,7 +116,18 @@ export function SkyScreen() {
         return;
       }
       analytics.track({ name: "generation_completed", at: Date.now() });
-      dispatch({ type: "generation_finished", constellation: result.constellation });
+      dispatch({
+        type: "generation_finished",
+        constellation: result.constellation,
+        inputPhotoUri: photo.previewUri,
+        generationProbe: result.stageImages
+          ? {
+              stages: result.stageImages,
+              client: result.clientTrace,
+              ...(result.serverDebug ? { server: result.serverDebug } : {}),
+            }
+          : null,
+      });
     });
   };
 
@@ -175,7 +198,7 @@ export function SkyScreen() {
           <Text style={styles.skyHint}>{state.mode === "manual" ? "Tap two stars to draw a line" : "Drag to explore  ·  Pinch to zoom"}</Text>
         </View>
       </View>
-      <View style={[styles.dock, { height: dockHeight, paddingBottom: Math.max(insets.bottom, 12) }]}>
+      <View style={[styles.dock, { height: dockHeight, paddingBottom: state.generationProbe ? 8 : Math.max(insets.bottom, 12) }]}>
         <ScrollView
           ref={dockRef}
           style={styles.dockScroll}
@@ -237,11 +260,27 @@ export function SkyScreen() {
               {shareMessage ?? (sharing ? "Preparing your sky…" : state.statusMessage)}
             </Text>
           ) : null}
+          {state.generationProbe ? <GenerationProbePanel probe={state.generationProbe} /> : null}
           <Pressable accessibilityRole="link" accessibilityLabel="HYG Database attribution" onPress={() => void Linking.openURL(HYG_URL)} style={styles.attributionLink}>
             <Text style={styles.attribution}>Mapped with the HYG star catalog</Text>
           </Pressable>
         </ScrollView>
       </View>
+      {state.generationProbe ? (
+        <View style={[styles.stageBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+          {BOTTOM_STAGE_IMAGES.map(({ key, label }) => (
+            <View key={key} style={styles.stageCell}>
+              <Image
+                accessibilityIgnoresInvertColors
+                accessibilityLabel={label}
+                source={{ uri: `data:image/png;base64,${state.generationProbe!.stages[key]}` }}
+                style={styles.stageThumb}
+              />
+              <Text style={styles.stageCaption}>{label}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -261,6 +300,25 @@ const styles = StyleSheet.create({
   dockContent: { paddingHorizontal: 20, paddingTop: 20, gap: 16, width: "100%", maxWidth: 680, alignSelf: "center" },
   tools: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: palette.border, paddingTop: 14 },
   live: { fontFamily: serif, color: palette.accent, fontSize: 15, lineHeight: 21 },
+  stageBar: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    backgroundColor: palette.surface,
+    borderTopWidth: 1,
+    borderTopColor: palette.border,
+  },
+  stageCell: { flex: 1, gap: 4 },
+  stageThumb: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 4,
+    backgroundColor: palette.raised,
+    borderColor: palette.border,
+    borderWidth: 1,
+  },
+  stageCaption: { fontFamily: serif, color: palette.secondary, fontSize: 11, textAlign: "center" },
   attributionLink: { minHeight: 44, alignItems: "center", justifyContent: "center" },
   attribution: { fontFamily: serif, color: palette.muted, fontSize: 12 },
 });
