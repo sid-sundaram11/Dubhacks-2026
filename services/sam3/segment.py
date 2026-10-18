@@ -25,11 +25,6 @@ class SegmentError(Exception):
         self.code = code
 
 
-# Matches app accent #9ecbd0 for step-1 preview tint.
-OVERLAY_TINT_RGB = (158, 203, 208)
-OVERLAY_ALPHA = 0.45
-
-
 @dataclass(frozen=True)
 class SegmentOutput:
     width: int
@@ -116,18 +111,12 @@ def mask_to_png_base64(mask_uint8: np.ndarray) -> str:
 
 
 def overlay_png_base64(image: Image.Image, mask_uint8: np.ndarray) -> str:
-    """RGB preview: photo with mask region tinted."""
-    rgb = np.array(image.convert("RGB"), dtype=np.float32)
-    tint = np.array(OVERLAY_TINT_RGB, dtype=np.float32)
-    alpha = OVERLAY_ALPHA
-    region = mask_uint8.astype(bool)
-    for channel in range(3):
-        base = rgb[:, :, channel]
-        blended = base * (1.0 - alpha) + tint[channel] * alpha
-        rgb[:, :, channel] = np.where(region, blended, base)
-    out = np.clip(rgb, 0, 255).astype(np.uint8)
+    """RGBA cutout: subject pixels kept, background fully transparent."""
+    rgb = np.array(image.convert("RGB"), dtype=np.uint8)
+    alpha = (mask_uint8.astype(np.uint8) * 255)
+    out = np.dstack([rgb, alpha])
     buf = io.BytesIO()
-    Image.fromarray(out, mode="RGB").save(buf, format="PNG")
+    Image.fromarray(out, mode="RGBA").save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 

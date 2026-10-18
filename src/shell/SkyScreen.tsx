@@ -45,12 +45,17 @@ export function SkyScreen() {
   const [sharing, setSharing] = useState(false);
   const [reveal, setReveal] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [showSubject, setShowSubject] = useState(false);
   const skyRef = useRef<SkyViewHandle>(null);
   const dockRef = useRef<ComponentRef<typeof ScrollView>>(null);
 
   useEffect(() => {
     dockRef.current?.scrollTo({ y: 0, animated: false });
   }, [state.constellation?.id, state.selectedStarId]);
+
+  useEffect(() => {
+    setShowSubject(false);
+  }, [state.constellation?.id]);
 
   useEffect(() => {
     analytics.track({ name: "app_opened", at: Date.now() });
@@ -144,6 +149,8 @@ export function SkyScreen() {
     });
   };
 
+  const savedSubject = state.sessionConstellations.find((item) => item.constellation.id === state.constellation?.id)?.subjectPng ?? null;
+  const subjectUri = savedSubject ? `data:image/png;base64,${savedSubject}` : null;
   const selected = state.selectedStarId != null ? byId.get(state.selectedStarId) : undefined;
   const revealValue = state.edited || state.constellation?.source === "manual" ? (state.constellation?.segments.length ?? 0) : reveal;
 
@@ -181,6 +188,12 @@ export function SkyScreen() {
           reveal={revealValue}
           selectedStarId={state.selectedStarId}
           interactionEnabled={!state.skyLocked}
+          subjectUri={subjectUri}
+          subjectVisible={showSubject && subjectUri != null}
+          onToggleSubject={() => {
+            if (!subjectUri) return;
+            setShowSubject((visible) => !visible);
+          }}
           onSelectStar={(id) => {
             const before = state.constellation?.segments.length ?? 0;
             dispatch({ type: "select_star", id });
@@ -223,6 +236,27 @@ export function SkyScreen() {
               source={state.constellation.source}
               edited={state.edited}
             />
+          ) : null}
+          {state.sessionConstellations.length > 0 ? (
+            <View style={styles.session}>
+              <Text style={styles.sessionLabel}>This session</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sessionRow}>
+                {state.sessionConstellations.map((item) => {
+                  const active = item.constellation.id === state.constellation?.id;
+                  return (
+                    <Pressable
+                      key={item.constellation.id}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      onPress={() => dispatch({ type: "recall_constellation", id: item.constellation.id })}
+                      style={[styles.sessionChip, active && styles.sessionChipActive]}
+                    >
+                      <Text style={styles.sessionChipText}>{item.constellation.name}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
           ) : null}
           <GenerationPanel
             imageUri={photo?.previewUri ?? null}
@@ -300,6 +334,12 @@ const styles = StyleSheet.create({
   dockContent: { paddingHorizontal: 20, paddingTop: 20, gap: 16, width: "100%", maxWidth: 680, alignSelf: "center" },
   tools: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: palette.border, paddingTop: 14 },
   live: { fontFamily: serif, color: palette.accent, fontSize: 15, lineHeight: 21 },
+  session: { gap: 8 },
+  sessionLabel: { fontFamily: serif, color: palette.muted, fontSize: 12, letterSpacing: 1.2 },
+  sessionRow: { gap: 8 },
+  sessionChip: { minHeight: 44, justifyContent: "center", paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.raised },
+  sessionChipActive: { borderColor: palette.accent },
+  sessionChipText: { fontFamily: serif, color: palette.text, fontSize: 15 },
   stageBar: {
     flexDirection: "row",
     gap: 8,

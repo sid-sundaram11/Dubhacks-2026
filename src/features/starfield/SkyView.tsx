@@ -1,6 +1,6 @@
 import { GLView, type ExpoWebGLRenderingContext } from "expo-gl";
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { Text, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
+import { Image, Text, View, useWindowDimensions, type LayoutChangeEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import * as THREE from "three";
 import type { ConstellationSegment } from "../../domain/constellation";
@@ -9,7 +9,7 @@ import type { ProjectedStar } from "../constellation/candidateSelection";
 import { celestialToCartesian } from "../catalog/celestialCoordinates";
 import { layoutText } from "../share/bitmapFont";
 import { patchExpoWebGLForThree } from "./expoGlThree";
-import { pickStar } from "./picking";
+import { constellationBounds, hitConstellation, pickStar, type ScreenRect } from "./picking";
 import { projectToScreen } from "./projection";
 import { SkyController } from "./skyController";
 import { palette, serif } from "../../theme";
@@ -37,7 +37,10 @@ interface SkyViewProps {
   reveal: number;
   selectedStarId: number | null;
   interactionEnabled: boolean;
+  subjectUri: string | null;
+  subjectVisible: boolean;
   onSelectStar: (id: number) => void;
+  onToggleSubject: () => void;
 }
 
 interface StarRecord {
@@ -95,6 +98,7 @@ function pushLine(
 
 export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(props, ref) {
   const [labels, setLabels] = useState<StarLabel[]>([]);
+  const [subjectFrame, setSubjectFrame] = useState<ScreenRect | null>(null);
   const { fontScale } = useWindowDimensions();
   const fontScaleRef = useRef(fontScale);
   fontScaleRef.current = fontScale;
@@ -105,6 +109,9 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
   const selectedRef = useRef(props.selectedStarId);
   const enabledRef = useRef(props.interactionEnabled);
   const onSelectRef = useRef(props.onSelectStar);
+  const onToggleSubjectRef = useRef(props.onToggleSubject);
+  const subjectVisibleRef = useRef(props.subjectVisible);
+  const subjectFrameKey = useRef("");
   const projectedRef = useRef<ProjectedStar[]>([]);
   const layoutRef = useRef({ width: 1, height: 1 });
   const captionRef = useRef<ShareCaption | null>(null);
@@ -117,6 +124,8 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
   selectedRef.current = props.selectedStarId;
   enabledRef.current = props.interactionEnabled;
   onSelectRef.current = props.onSelectStar;
+  onToggleSubjectRef.current = props.onToggleSubject;
+  subjectVisibleRef.current = props.subjectVisible;
 
   useEffect(() => () => cleanupRef.current?.(), []);
 
@@ -170,6 +179,10 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
       .maxDuration(350)
       .onEnd((event) => {
         if (!enabledRef.current) return;
+        if (hitConstellation(segmentsRef.current, projectedRef.current, event.x, event.y, revealRef.current)) {
+          onToggleSubjectRef.current();
+          return;
+        }
         const id = pickStar(projectedRef.current, event.x, event.y);
         if (id != null) onSelectRef.current(id);
       });
@@ -417,6 +430,15 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
         }
       }
 
+      const frame = subjectVisibleRef.current
+        ? constellationBounds(segmentsRef.current, projected, revealRef.current)
+        : null;
+      const frameKey = frame ? `${Math.round(frame.x)}:${Math.round(frame.y)}:${Math.round(frame.width)}:${Math.round(frame.height)}` : "";
+      if (frameKey !== subjectFrameKey.current) {
+        subjectFrameKey.current = frameKey;
+        setSubjectFrame(frame);
+      }
+
       lineGeometry.setAttribute("position", new THREE.Float32BufferAttribute(linePositions, 3));
       lineGeometry.setAttribute("aColor", new THREE.Float32BufferAttribute(lineColors, 4));
       lines.visible = linePositions.length > 0;
@@ -452,6 +474,23 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
     <GestureDetector gesture={gesture}>
       <View style={{ flex: 1 }} onLayout={onLayout}>
         <GLView ref={glViewRef} style={{ flex: 1, backgroundColor: palette.sky }} onContextCreate={onContextCreate} />
+        {props.subjectVisible && props.subjectUri && subjectFrame ? (
+          <Image
+            accessibilityIgnoresInvertColors
+            accessibilityLabel="Original subject"
+            pointerEvents="none"
+            resizeMode="contain"
+            source={{ uri: props.subjectUri }}
+            style={{
+              position: "absolute",
+              left: subjectFrame.x,
+              top: subjectFrame.y,
+              width: subjectFrame.width,
+              height: subjectFrame.height,
+              opacity: 0.38,
+            }}
+          />
+        ) : null}
         <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
           {labels.map((label) => (
             <Text key={label.id} numberOfLines={1} maxFontSizeMultiplier={1.5} style={{ position: "absolute", left: label.x, top: label.y, width: label.width, height: label.height, fontFamily: serif, fontSize: 13, lineHeight: 20, color: palette.accent }}>

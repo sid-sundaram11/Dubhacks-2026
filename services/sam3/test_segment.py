@@ -82,8 +82,11 @@ def test_segment_success(client):
     assert data["confidence"] == 0.91
     overlay_bytes = base64.b64decode(data["overlay"])
     overlay_img = Image.open(io.BytesIO(overlay_bytes))
-    assert overlay_img.mode == "RGB"
+    assert overlay_img.mode == "RGBA"
     assert overlay_img.size == (128, 96)
+    overlay_arr = np.array(overlay_img)
+    assert overlay_arr[0, 0, 3] == 0
+    assert overlay_arr[overlay_img.size[1] // 2, overlay_img.size[0] // 2, 3] == 255
     mask_bytes = base64.b64decode(data["mask"])
     mask_img = Image.open(io.BytesIO(mask_bytes))
     assert mask_img.mode == "L"

@@ -3,12 +3,18 @@ import type { GenerationTrace } from "../domain/generation";
 import type { StarId } from "../domain/star";
 import { appendSegment, undoSegment } from "../features/constellation/editor";
 
+export interface SavedConstellation {
+  constellation: CustomConstellation;
+  subjectPng: string | null;
+}
+
 export interface AppState {
   prompt: string;
   mode: "explore" | "manual";
   selectedStarId: StarId | null;
   pathStarId: StarId | null;
   constellation: CustomConstellation | null;
+  sessionConstellations: SavedConstellation[];
   edited: boolean;
   generationStatus: "idle" | "running" | "needs-zoom";
   generationProbe: GenerationTrace | null;
@@ -24,6 +30,7 @@ export const initialAppState: AppState = {
   selectedStarId: null,
   pathStarId: null,
   constellation: null,
+  sessionConstellations: [],
   edited: false,
   generationStatus: "idle",
   generationProbe: null,
@@ -52,10 +59,26 @@ export type AppAction =
   | { type: "generation_segmentation_model_unavailable" }
   | { type: "generation_needs_zoom" }
   | { type: "set_status"; message: string }
+  | { type: "recall_constellation"; id: string }
   | { type: "undo" }
   | { type: "request_clear" }
   | { type: "confirm_clear" }
   | { type: "cancel_clear" };
+
+function remember(
+  session: readonly SavedConstellation[],
+  constellation: CustomConstellation,
+  subjectPng?: string | null,
+): SavedConstellation[] {
+  const index = session.findIndex((item) => item.constellation.id === constellation.id);
+  if (index < 0) return [...session, { constellation, subjectPng: subjectPng ?? null }];
+  const next = [...session];
+  next[index] = {
+    constellation,
+    subjectPng: subjectPng === undefined ? session[index]!.subjectPng : subjectPng,
+  };
+  return next;
+}
 
 function manualConstellation(state: AppState, segments: ConstellationSegment[]): CustomConstellation {
   if (state.constellation && state.constellation.source !== "manual") {
@@ -100,11 +123,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const segments = appendSegment(current, state.pathStarId, action.id);
       if (!segments) return { ...state, selectedStarId: action.id };
       const edited = state.constellation != null && state.constellation.source !== "manual";
+      const constellation = manualConstellation(state, segments);
       return {
         ...state,
         selectedStarId: action.id,
         pathStarId: action.id,
-        constellation: manualConstellation(state, segments),
+        constellation,
+        sessionConstellations: remember(state.sessionConstellations, constellation),
         edited: state.edited || edited,
         confirmClear: false,
         statusMessage: "Segment added.",
@@ -130,6 +155,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         confirmClear: false,
         generationProbe: action.generationProbe,
         inputPhotoUri: action.inputPhotoUri,
+        sessionConstellations: remember(
+          state.sessionConstellations,
+          action.constellation,
+          action.generationProbe?.stages.found ?? null,
+        ),
         statusMessage: action.constellation.name,
       };
     case "generation_failed":
@@ -164,6 +194,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         generationProbe: null,
         statusMessage: "SAM3 could not load. Accept access at Hugging Face, then set HF_TOKEN in services/sam3/.env.",
       };
+    case "recall_constellation": {
+      const saved = state.sessionConstellations.find((item) => item.constellation.id === action.id);
+      if (!saved) return state;
+      return {
+        ...state,
+        constellation: saved.constellation,
+        edited: false,
+        pathStarId: null,
+        confirmClear: false,
+        selectedStarId: null,
+        statusMessage: saved.constellation.name,
+      };
+    }
     case "set_status":
       return { ...state, statusMessage: action.message };
     case "generation_needs_zoom":
@@ -180,6 +223,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         constellation: { ...state.constellation, segments: undone.segments },
+        sessionConstellations: remember(state.sessionConstellations, {
+          ...state.constellation,
+          segments: undone.segments,
+        }),
         pathStarId: undone.pathStarId,
         confirmClear: false,
         statusMessage: "Removed the last segment.",

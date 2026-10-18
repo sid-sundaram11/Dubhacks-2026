@@ -412,6 +412,42 @@ describe("pipeline stage previews", () => {
     state = appReducer(state, { type: "confirm_clear" });
     expect(state.generationProbe).toBeNull();
     expect(state.inputPhotoUri).toBeNull();
+    expect(state.constellation).toBeNull();
+    expect(state.sessionConstellations).toHaveLength(1);
+    expect(state.sessionConstellations[0]?.subjectPng).toBe(probe.stages.found);
+    state = appReducer(state, { type: "recall_constellation", id: constellation.id });
+    expect(state.constellation?.id).toBe(constellation.id);
+  });
+
+  it("keeps every generated constellation from the session", () => {
+    const first = {
+      id: "c-1",
+      prompt: "dog",
+      name: "Sky Dog",
+      story: "A dog runs through the stars.",
+      segments: [{ fromStarId: 1, toStarId: 2 }],
+      source: "sam3" as const,
+    };
+    const second = { ...first, id: "c-2", name: "Sky Cat", prompt: "cat" };
+    const probe = {
+      stages: testStageImages(),
+      server: testServerDebug(),
+      client: { candidateCount: 40, fov: 60, viewportWidth: 400, viewportHeight: 300, segments: first.segments },
+    };
+    let state = appReducer(initialAppState, {
+      type: "generation_finished",
+      constellation: first,
+      generationProbe: probe,
+      inputPhotoUri: null,
+    });
+    state = appReducer(state, {
+      type: "generation_finished",
+      constellation: second,
+      generationProbe: probe,
+      inputPhotoUri: null,
+    });
+    expect(state.sessionConstellations.map((item) => item.constellation.name)).toEqual(["Sky Dog", "Sky Cat"]);
+    expect(state.constellation?.name).toBe("Sky Cat");
   });
 });
 

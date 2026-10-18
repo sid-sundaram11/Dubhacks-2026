@@ -4,6 +4,7 @@ import { maskResponseSchema } from "../../src/features/generation/generationSche
 import { Sam3ClientError, segmentWithSam3 } from "../sam3Client";
 import type { SegmentSubject } from "./contract";
 import { nameAndStoryForSegmentation } from "./copy";
+import { cutoutSubjectPng } from "./cutoutSubject";
 import { downsampleMaskToGrid, maskGridIsEmpty } from "./downsampleMask";
 
 export class SegmentSubjectError extends Error {
@@ -55,7 +56,12 @@ export async function segmentSubject(image: SubjectImage, prompt?: string) {
     throw new SegmentSubjectError("invalid_copy", "failed");
   }
 
-  const foundPng = sam.overlay?.trim() || sam.mask;
+  let foundPng = sam.overlay?.trim() || sam.mask;
+  try {
+    foundPng = cutoutSubjectPng(image, sam.mask, sam.width, sam.height);
+  } catch {
+    // Keep the service overlay when the original photo cannot be cut.
+  }
   return {
     ...parsed.data,
     foundPng,
