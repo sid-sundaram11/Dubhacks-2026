@@ -37,6 +37,8 @@
     "ios": "expo run:ios",
     "ios:device": "expo run:ios --device",
     "server": "tsx server/index.ts",
+    "orbit:seed": "tsx scripts/seed-orbit-demo.ts",
+    "orbit:advance": "tsx scripts/advance-orbit-phase.ts",
     "catalog": "tsx scripts/build-star-catalog.mts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"

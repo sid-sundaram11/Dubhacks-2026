@@ -1,8 +1,16 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { resolve as resolvePath } from "node:path";
+import { dispatchRequest } from "./dispatch";
 import { loadLocalEnv } from "./env";
-import { handleGenerateConstellation } from "./handler";
+import { createOrbitApi } from "./orbit/api";
 
 loadLocalEnv();
+
+const orbitApi = createOrbitApi({
+  env: process.env,
+  storePath: process.env.ORBIT_STORE_PATH ?? resolvePath(process.cwd(), "data/orbit-store.json"),
+  persist: true,
+});
 
 function readBody(request: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -32,18 +40,8 @@ function writeResponse(nodeResponse: ServerResponse, response: Response): void {
 }
 
 const server = createServer((request, nodeResponse) => {
-  if (request.method === "GET" && request.url === "/health") {
-    nodeResponse.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
-    nodeResponse.end(JSON.stringify({ ok: true }));
-    return;
-  }
-  if (!request.url?.startsWith("/api/generate-constellation")) {
-    nodeResponse.writeHead(404);
-    nodeResponse.end();
-    return;
-  }
   void toWebRequest(request)
-    .then((webRequest) => handleGenerateConstellation(webRequest))
+    .then((webRequest) => dispatchRequest(webRequest, { orbit: orbitApi }))
     .then((response) => writeResponse(nodeResponse, response))
     .catch(() => {
       nodeResponse.writeHead(500, { "content-type": "application/json" });

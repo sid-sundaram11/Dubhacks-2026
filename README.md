@@ -17,6 +17,8 @@ npx expo start
 
 Photo generation uses **SAM3** for segmentation. Run the Python service on port **8790** and the Node API on **8787**; see [docs/sam3-dev.md](docs/sam3-dev.md). Set `SAM3_URL` in gitignored `.env.local`. The Expo app calls `http://127.0.0.1:8787` by default.
 
+Weekly Orbits, invites, the cached comet, and the solve archive live on the same Node process. See [docs/orbits.md](docs/orbits.md). `npm run orbit:seed` then `npm run orbit:advance` runs the local demo. `POST /api/generate-constellation` is unchanged.
+
 ## Sky aim
 
 `SkyController` owns one quaternion and field of view. Touch calls `applyDrag` and `applyPinch`. A future orientation source can call `setAim` with the same quaternion. Stars and constellation lines are reprojected from stable HYG ids whenever that aim changes.

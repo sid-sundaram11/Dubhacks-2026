@@ -123,7 +123,7 @@ When changing `MASK_SIZE`, update fixtures that build all-zero or patterned grid
 
 - Do not add a second sky rotation path beside `SkyController`.
 - Do not put SAM3 / HF credentials in the Expo app.
-- Do not commit `hygdata_v42.csv` or `.env.local`.
+- Do not commit `hygdata_v42.csv`, `.env`, or `.env.local`.
 - Do not reintroduce Gemini mask generation or placeholder “generic star” shapes on failure.
 
 ## Doc map
@@ -135,5 +135,6 @@ When changing `MASK_SIZE`, update fixtures that build all-zero or patterned grid
 | [description.md](../description.md) | Product narrative |
 | [docs/sam3-dev.md](sam3-dev.md) | Local SAM3 + Node + Expo |
 | [docs/ui-design.md](ui-design.md) | Visual / layout intent |
+| [docs/orbits.md](orbits.md) | Orbit API, demo seed, phone LAN |
 
 Historical hackathon “Person 1–4” task splits were removed; this file replaces them.

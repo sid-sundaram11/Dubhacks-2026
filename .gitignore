@@ -31,7 +31,18 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
+.env.*
+!.env.example
 .env*.local
+
+# local orbit snapshot
+data/orbit-store.json
+data/orbit-store.json.tmp
+
+# supabase local scratch
+supabase/.temp/
+supabase/.branches/
 
 # typescript
 *.tsbuildinfo
