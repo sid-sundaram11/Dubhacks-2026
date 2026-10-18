@@ -10,8 +10,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function roomExists(roomCode) {
-      return exists(/databases/$(database)/documents/rooms/$(roomCode));
+    function roomExistsAfter(roomCode) {
+      // Room creation writes the room and its first member atomically. Validate
+      // against the transaction's resulting state so the initial member write
+      // can see the new parent room before the transaction commits.
+      return getAfter(/databases/$(database)/documents/rooms/$(roomCode)).data.version == 1;
     }
 
     function isRoomMember(roomCode) {
@@ -65,7 +68,7 @@ service cloud.firestore {
         allow read: if isRoomMember(roomCode);
         allow create, update: if signedIn()
           && request.auth.uid == uid
-          && roomExists(roomCode)
+          && roomExistsAfter(roomCode)
           && request.resource.data.keys().hasOnly(['version', 'uid', 'label', 'joinedAt'])
           && request.resource.data.version == 1
           && request.resource.data.uid == uid
