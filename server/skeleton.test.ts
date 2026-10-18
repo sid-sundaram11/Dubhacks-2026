@@ -56,19 +56,22 @@ describe("skeleton constellations", () => {
     expect(shared.size).toBe(1);
   });
 
-  it("splits an L into perpendicular best-fit lines", () => {
+  it("represents an L with only endpoint and junction nodes on each branch", () => {
     const mask = blank();
     fill(mask, 20, 16, 32, 68);
     fill(mask, 20, 56, 80, 68);
     const graph = graphFromMask(mask);
+    expect(graph?.junctions).toBe(1);
+    expect(graph?.endpoints).toBe(2);
+    expect(graph?.strokes).toHaveLength(2);
+    for (const stroke of graph?.strokes ?? []) {
+      expect(stroke.points).toHaveLength(2);
+    }
     const vectors = edgeVectors(graph?.strokes ?? []);
-    expect(vectors.length).toBeGreaterThanOrEqual(2);
     const horizontal = vectors.some((vector) => Math.abs(vector.x) > Math.abs(vector.y));
     const vertical = vectors.some((vector) => Math.abs(vector.y) > Math.abs(vector.x));
     expect(horizontal).toBe(true);
     expect(vertical).toBe(true);
-    const diagonalOnly = vectors.length === 1 && Math.abs(vectors[0]!.x) > 0.2 && Math.abs(vectors[0]!.y) > 0.2;
-    expect(diagonalOnly).toBe(false);
   });
 
   it("keeps short spurs and only the largest blob on the mask grid", () => {

@@ -3,7 +3,6 @@ import type { GeneratedStroke, StrokePoint } from "../src/domain/constellation";
 import { clamp } from "../src/domain/math";
 
 const MARGIN = 0;
-const FIT_RESIDUAL = 2;
 const MIN_SKELETON_EDGES = 4;
 const OUTLINE_SIMPLIFY_PIXELS = 1.5;
 const MAX_OUTLINE_POINTS = 24;
@@ -180,56 +179,6 @@ export function skeletonize(source: Uint8Array, width: number, height: number): 
   return image;
 }
 
-function fitLine(points: readonly Point[]): { mx: number; my: number; dx: number; dy: number } | null {
-  let sumX = 0;
-  let sumY = 0;
-  for (const point of points) {
-    sumX += point.x;
-    sumY += point.y;
-  }
-  const mx = sumX / points.length;
-  const my = sumY / points.length;
-  let covXX = 0;
-  let covYY = 0;
-  let covXY = 0;
-  for (const point of points) {
-    const dx = point.x - mx;
-    const dy = point.y - my;
-    covXX += dx * dx;
-    covYY += dy * dy;
-    covXY += dx * dy;
-  }
-  if (covXX + covYY < 1e-8) return null;
-  const angle = 0.5 * Math.atan2(2 * covXY, covXX - covYY);
-  return { mx, my, dx: Math.cos(angle), dy: Math.sin(angle) };
-}
-
-function perpendicular(point: Point, line: { mx: number; my: number; dx: number; dy: number }): number {
-  return Math.abs((point.x - line.mx) * line.dy - (point.y - line.my) * line.dx);
-}
-
-function fitPolyline(points: readonly Point[]): Point[] {
-  if (points.length <= 2) return [...points];
-  const line = fitLine(points);
-  if (!line) return [points[0]!, points[points.length - 1]!];
-  let maxDistance = 0;
-  let maxIndex = -1;
-  for (let index = 1; index < points.length - 1; index += 1) {
-    const distance = perpendicular(points[index]!, line);
-    if (distance > maxDistance) {
-      maxDistance = distance;
-      maxIndex = index;
-    }
-  }
-  if (maxDistance > FIT_RESIDUAL && maxIndex > 0 && maxIndex < points.length - 1) {
-    const left = fitPolyline(points.slice(0, maxIndex + 1));
-    const right = fitPolyline(points.slice(maxIndex));
-    return [...left.slice(0, -1), ...right];
-  }
-  // Keep the real node pixels so every branch that shares a joint meets at the same point.
-  return [points[0]!, points[points.length - 1]!];
-}
-
 function normalizePoint(point: Point, width: number, height: number): StrokePoint {
   const sx = width <= 1 ? 0 : point.x / (width - 1);
   const sy = height <= 1 ? 0 : point.y / (height - 1);
@@ -383,7 +332,7 @@ function edgeCount(strokes: readonly GeneratedStroke[]): number {
   return strokes.reduce((total, stroke) => total + Math.max(0, stroke.points.length - 1), 0);
 }
 
-/** Trace endpoints and junctions, drop short spurs, and replace each branch with best-fit lines. */
+/** Trace endpoints and junctions; each branch is one segment between its two nodes. */
 export function traceFittedStrokes(binary: Uint8Array, width: number, height: number): FittedSkeleton {
   const adjacency = new Map<string, Point[]>();
   const degree = new Map<string, number>();
@@ -505,8 +454,7 @@ export function traceFittedStrokes(binary: Uint8Array, width: number, height: nu
   for (const branch of branches) {
     const start = representative.get(branch.startId) ?? branch.pixels[0]!;
     const end = representative.get(branch.endId) ?? branch.pixels[branch.pixels.length - 1]!;
-    const interior = branch.pixels.slice(1, -1);
-    const produced = pointsToStrokes(fitPolyline([start, ...interior, end]), width, height);
+    const produced = pointsToStrokes([start, end], width, height);
     if (produced.length === 0) continue;
     (branch.startEndpoint ? endpoints : junctions).add(branch.startId);
     (branch.endEndpoint ? endpoints : junctions).add(branch.endId);

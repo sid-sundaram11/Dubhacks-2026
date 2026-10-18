@@ -37,6 +37,9 @@ interface SkyViewProps {
   stars: readonly CatalogStar[];
   segments: readonly ConstellationSegment[];
   reveal: number;
+  /** Segments used for the subject cutout. Defaults to the drawn segments. */
+  overlaySegments?: readonly ConstellationSegment[];
+  overlayReveal?: number;
   selectedStarId: number | null;
   interactionEnabled: boolean;
   subjectUri: string | null;
@@ -108,6 +111,8 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
   const starsRef = useRef(props.stars);
   const segmentsRef = useRef(props.segments);
   const revealRef = useRef(props.reveal);
+  const overlaySegmentsRef = useRef(props.overlaySegments ?? props.segments);
+  const overlayRevealRef = useRef(props.overlayReveal ?? props.reveal);
   const selectedRef = useRef(props.selectedStarId);
   const enabledRef = useRef(props.interactionEnabled);
   const onSelectRef = useRef(props.onSelectStar);
@@ -123,6 +128,8 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
   starsRef.current = props.stars;
   segmentsRef.current = props.segments;
   revealRef.current = props.reveal;
+  overlaySegmentsRef.current = props.overlaySegments ?? props.segments;
+  overlayRevealRef.current = props.overlayReveal ?? props.reveal;
   selectedRef.current = props.selectedStarId;
   enabledRef.current = props.interactionEnabled;
   onSelectRef.current = props.onSelectStar;
@@ -183,7 +190,7 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
       .maxDuration(350)
       .onEnd((event) => {
         if (!enabledRef.current) return;
-        if (hitConstellation(segmentsRef.current, projectedRef.current, event.x, event.y, revealRef.current)) {
+        if (hitConstellation(overlaySegmentsRef.current, projectedRef.current, event.x, event.y, overlayRevealRef.current)) {
           onToggleSubjectRef.current();
           return;
         }
@@ -435,7 +442,7 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
       }
 
       const frame = subjectVisibleRef.current
-        ? constellationBounds(segmentsRef.current, projected, revealRef.current)
+        ? constellationBounds(overlaySegmentsRef.current, projected, overlayRevealRef.current)
         : null;
       const frameKey = frame ? `${Math.round(frame.x)}:${Math.round(frame.y)}:${Math.round(frame.width)}:${Math.round(frame.height)}` : "";
       if (frameKey !== subjectFrameKey.current) {

@@ -17,6 +17,7 @@ import { displayName } from "../features/catalog/displayName";
 import { revealedSegments } from "../features/constellation/animation";
 import { selectMinZoomCandidates } from "../features/constellation/candidateSelection";
 import { createConstellation } from "../features/constellation/createConstellation";
+import { sessionSky } from "../features/constellation/sessionSky";
 import { requestDrawing } from "../features/generation/generationClient";
 import { pickSubjectPhoto, type PickedSubject } from "../features/generation/pickSubjectPhoto";
 import { sharePng } from "../features/share/exportPng";
@@ -164,6 +165,8 @@ export function SkyScreen() {
       });
       const aim = skyRef.current?.getAim();
       if (aim) void room.publishConstellation(result.constellation, aim);
+    }).catch(() => {
+      dispatch({ type: "generation_failed" });
     });
   };
 
@@ -184,6 +187,11 @@ export function SkyScreen() {
   const subjectUri = savedSubject ? `data:image/png;base64,${savedSubject}` : null;
   const selected = state.selectedStarId != null ? byId.get(state.selectedStarId) : undefined;
   const revealValue = state.edited || state.constellation?.source === "manual" ? (state.constellation?.segments.length ?? 0) : reveal;
+  const sky = useMemo(
+    () => sessionSky(state.sessionConstellations.map((item) => item.constellation), state.constellation),
+    [state.constellation, state.sessionConstellations],
+  );
+  const skyReveal = state.constellation ? sky.settledCount + revealValue : sky.settledCount;
 
   const share = async () => {
     if (!state.constellation || sharing) return;
@@ -215,8 +223,10 @@ export function SkyScreen() {
         <SkyView
           ref={skyRef}
           stars={stars}
-          segments={state.constellation?.segments ?? []}
-          reveal={revealValue}
+          segments={sky.segments}
+          reveal={skyReveal}
+          overlaySegments={state.constellation?.segments ?? []}
+          overlayReveal={revealValue}
           selectedStarId={state.selectedStarId}
           interactionEnabled={!state.skyLocked}
           subjectUri={subjectUri}
