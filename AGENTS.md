@@ -6,7 +6,7 @@ The sky is a dark J2000 star sphere. Do not add a camera preview, ARKit, ARCore,
 
 `SkyController` in `src/features/starfield/skyController.ts` is the only sky aim. Touch writes its quaternion today. A later device-attitude source may call `setAim` and must not introduce a second rotation path.
 
-The Gemini SDK and `GEMINI_API_KEY` belong only in `server/`. Never put the key in `app.json` or an `EXPO_PUBLIC_` variable.
+SAM3 runs in `services/sam3/` (port 8790). The Node server calls it via `SAM3_URL`. Hugging Face credentials stay in `services/sam3/.env` only, never in the Expo app or `EXPO_PUBLIC_` variables.
 
 Constellation segments are HYG id pairs. Screen position is derived.
 

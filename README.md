@@ -13,7 +13,9 @@ npm run server
 npx expo start
 ```
 
-The Gemini key stays in gitignored `.env.local` as `GEMINI_API_KEY`. The app calls `http://127.0.0.1:8787`. If the model is unavailable, Dragon, Heart, and Rocket still complete through the offline fallback.
+Photo generation uses **SAM3** for segmentation. Run the Python service on port **8790** and the Node API on **8787**; see [docs/sam3-dev.md](docs/sam3-dev.md). Set `SAM3_URL` in gitignored `.env.local`. The Expo app calls `http://127.0.0.1:8787` by default.
+
+SAM3 hackathon notes: [docs/hackathon/sam3/](docs/hackathon/sam3/).
 
 ## Sky aim
 

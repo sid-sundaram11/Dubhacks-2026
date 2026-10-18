@@ -79,6 +79,7 @@ export function SkyScreen() {
     analytics.track({ name: "generation_started", at: Date.now() });
     void createConstellation({
       image: photo.image,
+      prompt: state.prompt,
       candidates,
       request: requestDrawing,
     }).then((result) => {
@@ -90,8 +91,12 @@ export function SkyScreen() {
         dispatch({ type: "generation_unreachable" });
         return;
       }
-      if (result.kind === "rate-limited") {
-        dispatch({ type: "generation_rate_limited" });
+      if (result.kind === "segmentation-unavailable") {
+        dispatch({ type: "generation_segmentation_unavailable" });
+        return;
+      }
+      if (result.kind === "segmentation-model-unavailable") {
+        dispatch({ type: "generation_segmentation_model_unavailable" });
         return;
       }
       if (result.kind === "failed") {
@@ -198,7 +203,9 @@ export function SkyScreen() {
           ) : null}
           <GenerationPanel
             imageUri={photo?.previewUri ?? null}
+            subjectPrompt={state.prompt}
             running={state.generationStatus === "running"}
+            onSubjectPromptChange={(prompt) => dispatch({ type: "set_prompt", prompt })}
             onPick={choosePhoto}
             onGenerate={generate}
           />

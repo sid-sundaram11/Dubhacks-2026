@@ -7,6 +7,7 @@ export interface SubjectImage {
 
 export interface DrawingRequest {
   image: SubjectImage;
+  prompt?: string;
 }
 
 export interface DrawingResponse {
@@ -22,5 +23,6 @@ export type GenerationErrorCode =
   | "payload_too_large"
   | "forbidden_origin"
   | "generation_failed"
-  | "rate_limited"
+  | "segmentation_unavailable"
+  | "segmentation_model_unavailable"
   | "timeout";

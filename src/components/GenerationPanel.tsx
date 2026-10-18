@@ -1,14 +1,24 @@
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { PROMPT_MAX } from "../domain/constants";
 import { palette, serif } from "../theme";
 
 interface GenerationPanelProps {
   imageUri: string | null;
+  subjectPrompt: string;
   running: boolean;
+  onSubjectPromptChange: (value: string) => void;
   onPick: () => void;
   onGenerate: () => void;
 }
 
-export function GenerationPanel({ imageUri, running, onPick, onGenerate }: GenerationPanelProps) {
+export function GenerationPanel({
+  imageUri,
+  subjectPrompt,
+  running,
+  onSubjectPromptChange,
+  onPick,
+  onGenerate,
+}: GenerationPanelProps) {
   const disabled = running || imageUri == null;
   return (
     <View style={styles.panel}>
@@ -39,6 +49,17 @@ export function GenerationPanel({ imageUri, running, onPick, onGenerate }: Gener
           {running ? <ActivityIndicator color={palette.sky} /> : <Text style={styles.generateText}>↑</Text>}
         </Pressable>
       </View>
+      <Text style={styles.promptLabel}>Subject in the photo</Text>
+      <TextInput
+        accessibilityLabel="Subject in the photo"
+        editable={!running}
+        maxLength={PROMPT_MAX}
+        onChangeText={onSubjectPromptChange}
+        placeholder="dog"
+        placeholderTextColor={palette.muted}
+        style={styles.promptInput}
+        value={subjectPrompt}
+      />
     </View>
   );
 }
@@ -54,4 +75,16 @@ const styles = StyleSheet.create({
   generateText: { fontFamily: serif, color: palette.sky, fontSize: 28 },
   disabled: { opacity: 0.4 },
   pressed: { opacity: 0.65 },
+  promptLabel: { fontFamily: serif, color: palette.secondary, fontSize: 15 },
+  promptInput: {
+    fontFamily: serif,
+    fontSize: 17,
+    color: palette.text,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: palette.raised,
+    borderColor: palette.border,
+    borderWidth: 1,
+    borderRadius: 8,
+  },
 });

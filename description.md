@@ -18,10 +18,10 @@ If generation fails, the sky is unchanged. There is no generic “four-point sta
 The product goal is a **constellation that follows the subject in the photo**, not a hand-wavy star clipart.
 
 ```text
-Photo → Gemini (subject + silhouette mask) → skeleton → simplified strokes → snap to HYG stars
+Photo + subject text → SAM3 (silhouette mask) → skeleton → simplified strokes → snap to HYG stars
 ```
 
-1. **Gemini (server only)** — Interprets the image: what is the main subject, a one-sentence story, and a low-resolution binary mask (subject vs background). The API key never ships in the client.
+1. **SAM3 (separate service)** — Text-prompted instance segmentation returns a foreground mask. Optional **Subject in the photo** in the app is sent as the prompt. Name and story are generated deterministically on the Node server. No model keys in the client.
 2. **Mask cleanup** — Keep the largest foreground blob and close small holes.
 3. **Skeletonization** — Thin the silhouette to a one-pixel-wide medial axis (Zhang–Suen thinning, same idea as scikit-image’s skeleton examples).
 4. **Graph simplification** — Find endpoints and junctions on the skeleton, trace branches between them, and replace each branch with piecewise straight segments (total least-squares lines). Corners stay corners; short spurs are dropped. The result is a small set of strokes (on the order of 4–16 edges total).
@@ -38,7 +38,8 @@ If too few stars fall in that window, the app asks you to zoom out so more of th
 | Piece | Role |
 |--------|------|
 | **Expo client** | Star field (Three.js / expo-gl), touch aim (`SkyController`), photo picker, manual editing, share |
-| **Node server** | Gemini calls, mask → skeleton → strokes, validation |
+| **Node server** | SAM3 client, mask → skeleton → strokes, validation |
+| **SAM3 service** | `services/sam3`, port 8790 |
 | **HYG catalog** | Bundled reduced star set; segments reference stable ids |
 
 Manual drawing, undo, clear-with-confirmation, reduced-motion reveal, and offline catalog browsing remain supported. Automated generation is **photo-only**; text prompts and offline template shapes (dragon, heart, rocket, generic star) are not part of the final product.
@@ -50,7 +51,7 @@ npm install
 npm run catalog -- --input /path/to/hygdata_v42.csv --output assets/data/hyg-stars.v1.json
 npm test
 npm run typecheck
-npm run server   # GEMINI_API_KEY in .env.local
+npm run server   # SAM3_URL in .env.local; start services/sam3 on 8790
 npx expo start   # talks to http://127.0.0.1:8787 by default
 ```
 

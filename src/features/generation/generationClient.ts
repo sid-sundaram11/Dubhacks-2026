@@ -15,7 +15,13 @@ export async function requestDrawing(body: DrawingRequest): Promise<DrawingRespo
       signal: controller.signal,
     });
     const payload: unknown = await response.json();
-    if (response.status === 429) throw new Error("rate_limited");
+    if (response.status === 503) {
+      const code =
+        typeof payload === "object" && payload !== null && "error" in payload
+          ? String((payload as { error: unknown }).error)
+          : "segmentation_unavailable";
+      throw new Error(code === "segmentation_model_unavailable" ? code : "segmentation_unavailable");
+    }
     if (!response.ok) throw new Error("generation_failed");
     const parsed = drawingResponseSchema.safeParse(payload);
     if (!parsed.success) throw new Error("invalid_response");

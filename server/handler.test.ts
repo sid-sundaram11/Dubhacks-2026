@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MASK_SIZE } from "../src/domain/constants";
 import { MAX_REQUEST_BYTES } from "../src/features/generation/generationSchemas";
 import { handleGenerateConstellation } from "./handler";
+import { SegmentSubjectError } from "./segmentation/segmentSubject";
 import { strokesFromMask } from "./skeleton";
 
 function request(body: unknown, init?: { method?: string; origin?: string; contentType?: string; raw?: string }) {
@@ -37,9 +38,11 @@ const image = { mimeType: "image/jpeg" as const, data: Buffer.from("constellatio
 describe("generate constellation handler", () => {
   it("turns a subject mask into skeleton strokes and hides model failures", async () => {
     const mask = plusMask();
-    const response = await handleGenerateConstellation(request({ image }), async () =>
-      JSON.stringify({ name: "Night Heron", story: "A heron stands against the sky.", mask }),
-    );
+    const response = await handleGenerateConstellation(request({ image }), async () => ({
+      name: "Night Heron",
+      story: "A heron stands against the sky.",
+      mask,
+    }));
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       name: "Night Heron",
@@ -48,18 +51,24 @@ describe("generate constellation handler", () => {
     });
 
     const failed = await handleGenerateConstellation(request({ image }), async () => {
-      throw new Error("secret-should-not-leak");
+      throw new SegmentSubjectError("bad", "failed");
     });
     expect(failed.status).toBe(502);
     const payload = (await failed.json()) as { error: string };
     expect(payload.error).toBe("generation_failed");
-    expect(JSON.stringify(payload)).not.toContain("secret");
+    expect(JSON.stringify(payload)).not.toContain("bad");
 
-    const limited = await handleGenerateConstellation(request({ image }), async () => {
-      throw Object.assign(new Error("quota exceeded"), { status: 429 });
+    const unavailable = await handleGenerateConstellation(request({ image }), async () => {
+      throw new SegmentSubjectError("down", "unavailable");
     });
-    expect(limited.status).toBe(429);
-    await expect(limited.json()).resolves.toEqual({ error: "rate_limited" });
+    expect(unavailable.status).toBe(503);
+    await expect(unavailable.json()).resolves.toEqual({ error: "segmentation_unavailable" });
+
+    const modelDown = await handleGenerateConstellation(request({ image }), async () => {
+      throw new SegmentSubjectError("gated", "model_unavailable");
+    });
+    expect(modelDown.status).toBe(503);
+    await expect(modelDown.json()).resolves.toEqual({ error: "segmentation_model_unavailable" });
   });
 
   it("rejects the wrong method, a foreign origin, a missing image, and an oversized body", async () => {
@@ -69,5 +78,14 @@ describe("generate constellation handler", () => {
     expect((await handleGenerateConstellation(request({ image }, { contentType: "text/plain" }))).status).toBe(415);
     expect((await handleGenerateConstellation(request({}))).status).toBe(400);
     expect((await handleGenerateConstellation(request(null, { raw: "x".repeat(MAX_REQUEST_BYTES + 1) }))).status).toBe(413);
+  });
+
+  it("accepts an optional subject prompt", async () => {
+    const mask = plusMask();
+    const response = await handleGenerateConstellation(request({ image, prompt: "heron" }), async (_image, prompt) => {
+      expect(prompt).toBe("heron");
+      return { name: "Heron", story: "A heron waits among the fixed stars.", mask };
+    });
+    expect(response.status).toBe(200);
   });
 });

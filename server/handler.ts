@@ -1,9 +1,10 @@
-import type { GenerationErrorCode, SubjectImage } from "../src/domain/generation";
-import { drawingRequestSchema, drawingResponseSchema, maskResponseSchema, MAX_REQUEST_BYTES } from "../src/features/generation/generationSchemas";
-import { generateWithGemini } from "./gemini";
+import type { GenerationErrorCode } from "../src/domain/generation";
+import { drawingRequestSchema, drawingResponseSchema, MAX_REQUEST_BYTES } from "../src/features/generation/generationSchemas";
+import type { SegmentSubject } from "./segmentation/contract";
+import { defaultSegmentSubject, SegmentSubjectError } from "./segmentation/segmentSubject";
 import { strokesFromMask } from "./skeleton";
 
-export type ModelGenerate = (image: SubjectImage) => Promise<string>;
+export type { SegmentSubject };
 
 function corsHeaders(): HeadersInit {
   return {
@@ -28,7 +29,7 @@ function originAllowed(request: Request): boolean {
 
 export async function handleGenerateConstellation(
   request: Request,
-  generate: ModelGenerate = generateWithGemini,
+  segment: SegmentSubject = defaultSegmentSubject,
 ): Promise<Response> {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
   if (request.method !== "POST") return errorResponse(405, "method_not_allowed");
@@ -48,14 +49,11 @@ export async function handleGenerateConstellation(
   if (!parsed.success) return errorResponse(400, "invalid_request");
 
   try {
-    const raw = await generate(parsed.data.image);
-    const modelJson: unknown = JSON.parse(raw);
-    const mask = maskResponseSchema.safeParse(modelJson);
-    if (!mask.success) return errorResponse(502, "generation_failed");
-    const strokes = strokesFromMask(mask.data.mask);
+    const { name, story, mask } = await segment(parsed.data.image, parsed.data.prompt);
+    const strokes = strokesFromMask(mask);
     const drawing = drawingResponseSchema.safeParse({
-      name: mask.data.name.trim(),
-      story: mask.data.story.trim(),
+      name: name.trim(),
+      story: story.trim(),
       strokes,
     });
     if (!strokes || !drawing.success) return errorResponse(502, "generation_failed");
@@ -68,9 +66,13 @@ export async function handleGenerateConstellation(
       { headers: corsHeaders() },
     );
   } catch (error) {
+    if (error instanceof SegmentSubjectError) {
+      if (error.kind === "unavailable") return errorResponse(503, "segmentation_unavailable");
+      if (error.kind === "model_unavailable") return errorResponse(503, "segmentation_model_unavailable");
+      return errorResponse(502, "generation_failed");
+    }
     const name = error instanceof Error ? error.name : "";
     if (name === "TimeoutError" || name === "AbortError") return errorResponse(504, "timeout");
-    if ((error as { status?: unknown }).status === 429) return errorResponse(429, "rate_limited");
     return errorResponse(502, "generation_failed");
   }
 }

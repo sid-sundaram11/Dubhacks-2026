@@ -38,7 +38,8 @@ export type AppAction =
   | { type: "generation_finished"; constellation: CustomConstellation }
   | { type: "generation_failed" }
   | { type: "generation_unreachable" }
-  | { type: "generation_rate_limited" }
+  | { type: "generation_segmentation_unavailable" }
+  | { type: "generation_segmentation_model_unavailable" }
   | { type: "generation_needs_zoom" }
   | { type: "set_status"; message: string }
   | { type: "undo" }
@@ -132,12 +133,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         skyLocked: false,
         statusMessage: "The drawing server is not running.",
       };
-    case "generation_rate_limited":
+    case "generation_segmentation_unavailable":
       return {
         ...state,
         generationStatus: "idle",
         skyLocked: false,
-        statusMessage: "Gemini’s request limit is used up. Try again later.",
+        statusMessage: "The segmentation service is not running.",
+      };
+    case "generation_segmentation_model_unavailable":
+      return {
+        ...state,
+        generationStatus: "idle",
+        skyLocked: false,
+        statusMessage: "SAM3 could not load. Accept access at Hugging Face, then set HF_TOKEN in services/sam3/.env.",
       };
     case "set_status":
       return { ...state, statusMessage: action.message };

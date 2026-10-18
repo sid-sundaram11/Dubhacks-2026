@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MASK_SIZE, MAX_SEGMENTS, MIN_SEGMENTS } from "../../domain/constants";
+import { MASK_SIZE, MAX_SEGMENTS, MIN_SEGMENTS, PROMPT_MAX } from "../../domain/constants";
 
 const unit = z.number().finite().min(0).max(1);
 
@@ -10,6 +10,7 @@ export const drawingRequestSchema = z.strictObject({
     mimeType: z.enum(["image/jpeg", "image/png"]),
     data: base64,
   }),
+  prompt: z.string().trim().min(1).max(PROMPT_MAX).optional(),
 });
 
 function refineCopy(name: string, story: string, ctx: z.RefinementCtx): void {

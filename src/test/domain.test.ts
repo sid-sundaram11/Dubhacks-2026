@@ -159,6 +159,7 @@ describe("generation contract", () => {
     expect(drawingRequestSchema.safeParse({}).success).toBe(false);
     expect(drawingRequestSchema.safeParse({ image, model: "other" }).success).toBe(false);
     expect(drawingRequestSchema.safeParse({ image }).success).toBe(true);
+    expect(drawingRequestSchema.safeParse({ image, prompt: "heron" }).success).toBe(true);
     const fourEdges = Array.from({ length: 4 }, (_, index) => ({
       points: [
         { x: 0.2, y: 0.2 + index * 0.1 },
@@ -209,7 +210,7 @@ describe("constellation creation", () => {
     });
     expect(created.kind).toBe("constellation");
     if (created.kind === "constellation") {
-      expect(created.constellation.source).toBe("gemini");
+      expect(created.constellation.source).toBe("sam3");
       expect(created.constellation.segments.length).toBeGreaterThanOrEqual(4);
     }
 
@@ -232,16 +233,27 @@ describe("constellation creation", () => {
     expect(unreachable.kind).toBe("unreachable");
 
     let calls = 0;
-    const limited = await createConstellation({
+    const segmentationDown = await createConstellation({
       image,
       candidates,
       request: async () => {
         calls += 1;
-        throw new Error("rate_limited");
+        throw new Error("segmentation_unavailable");
       },
     });
-    expect(limited.kind).toBe("rate-limited");
+    expect(segmentationDown.kind).toBe("segmentation-unavailable");
     expect(calls).toBe(1);
+
+    const withPrompt = await createConstellation({
+      image,
+      prompt: "heron",
+      candidates,
+      request: async (body) => {
+        expect(body.prompt).toBe("heron");
+        return { name: "Heron", story: "A heron waits among the fixed stars.", strokes };
+      },
+    });
+    expect(withPrompt.kind).toBe("constellation");
   });
 
   it("asks for a wider view when fewer than 40 stars are available", async () => {

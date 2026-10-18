@@ -14,7 +14,7 @@ export interface ConstellationSegment {
   toStarId: StarId;
 }
 
-export type ConstellationSource = "gemini" | "fallback" | "manual";
+export type ConstellationSource = "sam3" | "fallback" | "manual";
 
 export interface CustomConstellation {
   id: string;
