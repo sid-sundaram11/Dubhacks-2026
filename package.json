@@ -40,6 +40,7 @@
     "catalog": "tsx scripts/build-star-catalog.mts",
     "test:firebase-room": "npx --yes firebase-tools@15.34.0 emulators:exec --only auth,firestore --project demo-constellation-room-test \"node scripts/firebase-room-smoke.mjs\"",
     "typecheck": "tsc --noEmit",
+    "deploy:landing": "cd landing && npx vercel --prod --yes",
     "test": "vitest run"
   },
   "private": true
