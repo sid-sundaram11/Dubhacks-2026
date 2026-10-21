@@ -1,0 +1,249 @@
+{
+  "subjects": [
+    {
+      "id": "constellation-eagle",
+      "name": "Aquila Nova (The Golden Eagle)",
+      "story": "A soaring celestial predator formed across the starlight of the northern sky, wings spanning through Altair and Tarazed.",
+      "subject": "eagle",
+      "centerRa": 19.8,
+      "centerDec": 8.8,
+      "strokesCount": 9,
+      "segmentsCount": 9,
+      "segments": [
+        {
+          "from": 102962,
+          "to": 102059
+        },
+        {
+          "from": 96533,
+          "to": 97338
+        },
+        {
+          "from": 92303,
+          "to": 92105
+        },
+        {
+          "from": 102059,
+          "to": 101095
+        },
+        {
+          "from": 92303,
+          "to": 92187
+        },
+        {
+          "from": 92187,
+          "to": 93572
+        },
+        {
+          "from": 101095,
+          "to": 97338
+        },
+        {
+          "from": 93572,
+          "to": 97338
+        },
+        {
+          "from": 97338,
+          "to": 97398
+        }
+      ],
+      "stages": {
+        "found": "assets/stages/eagle_found.png",
+        "mask": "assets/stages/eagle_mask.png",
+        "grid": "assets/stages/eagle_grid.png",
+        "skeleton": "assets/stages/eagle_skeleton.png",
+        "nodes": "assets/stages/eagle_nodes.png"
+      }
+    },
+    {
+      "id": "constellation-dancer",
+      "name": "Terpsichore (The Celestial Dancer)",
+      "story": "A kinetic figure captured mid-leap between Gemini and Orion, balancing grace across ancient supergiant stars.",
+      "subject": "dancer",
+      "centerRa": 6.5,
+      "centerDec": 12,
+      "strokesCount": 22,
+      "segmentsCount": 22,
+      "segments": [
+        {
+          "from": 27399,
+          "to": 28229
+        },
+        {
+          "from": 34726,
+          "to": 33839
+        },
+        {
+          "from": 28229,
+          "to": 28645
+        },
+        {
+          "from": 33839,
+          "to": 32834
+        },
+        {
+          "from": 30270,
+          "to": 30742
+        },
+        {
+          "from": 32834,
+          "to": 32453
+        },
+        {
+          "from": 28645,
+          "to": 30742
+        },
+        {
+          "from": 32453,
+          "to": 30742
+        },
+        {
+          "from": 30742,
+          "to": 31045
+        },
+        {
+          "from": 31045,
+          "to": 31895
+        },
+        {
+          "from": 31045,
+          "to": 30375
+        },
+        {
+          "from": 30375,
+          "to": 29655
+        },
+        {
+          "from": 31895,
+          "to": 33497
+        },
+        {
+          "from": 33497,
+          "to": 33516
+        },
+        {
+          "from": 29655,
+          "to": 28742
+        },
+        {
+          "from": 28742,
+          "to": 27681
+        },
+        {
+          "from": 33516,
+          "to": 34677
+        },
+        {
+          "from": 27681,
+          "to": 28342
+        },
+        {
+          "from": 29643,
+          "to": 28342
+        },
+        {
+          "from": 34677,
+          "to": 34019
+        },
+        {
+          "from": 34677,
+          "to": 33097
+        },
+        {
+          "from": 28342,
+          "to": 26820
+        }
+      ],
+      "stages": {
+        "found": "assets/stages/dancer_found.png",
+        "mask": "assets/stages/dancer_mask.png",
+        "grid": "assets/stages/dancer_grid.png",
+        "skeleton": "assets/stages/dancer_skeleton.png",
+        "nodes": "assets/stages/dancer_nodes.png"
+      }
+    },
+    {
+      "id": "constellation-giraffe",
+      "name": "Camelopardalis Astra (The Giraffe)",
+      "story": "A gentle giant with an elongated neck ascending into circumpolar starlight near the celestial north pole.",
+      "subject": "giraffe",
+      "centerRa": 4.5,
+      "centerDec": 65,
+      "strokesCount": 16,
+      "segmentsCount": 16,
+      "segments": [
+        {
+          "from": 9741,
+          "to": 7543
+        },
+        {
+          "from": 9741,
+          "to": 14826
+        },
+        {
+          "from": 14826,
+          "to": 17917
+        },
+        {
+          "from": 17917,
+          "to": 19081
+        },
+        {
+          "from": 19081,
+          "to": 20216
+        },
+        {
+          "from": 20216,
+          "to": 23954
+        },
+        {
+          "from": 20216,
+          "to": 20326
+        },
+        {
+          "from": 23954,
+          "to": 25705
+        },
+        {
+          "from": 25705,
+          "to": 24393
+        },
+        {
+          "from": 20326,
+          "to": 18970
+        },
+        {
+          "from": 20326,
+          "to": 21674
+        },
+        {
+          "from": 18970,
+          "to": 19899
+        },
+        {
+          "from": 27100,
+          "to": 24393
+        },
+        {
+          "from": 24393,
+          "to": 21674
+        },
+        {
+          "from": 21674,
+          "to": 19899
+        },
+        {
+          "from": 19899,
+          "to": 15824
+        }
+      ],
+      "stages": {
+        "found": "assets/stages/giraffe_found.png",
+        "mask": "assets/stages/giraffe_mask.png",
+        "grid": "assets/stages/giraffe_grid.png",
+        "skeleton": "assets/stages/giraffe_skeleton.png",
+        "nodes": "assets/stages/giraffe_nodes.png"
+      }
+    }
+  ]
+}

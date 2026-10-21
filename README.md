@@ -1,4 +1,4 @@
-# Constellations
+# Orbit
 
 An Expo app that turns a **photo of a subject** into a constellation drawn between real **HYG** stars. The sky is a fixed J2000 sphere. Drag looks around, pinch changes field of view, and tap selects a star or toggles a subject cutout over your generated figure. Device attitude can later write the same sky quaternion; this version is finger control only.
 
@@ -23,6 +23,6 @@ Photo generation uses **SAM3** for segmentation. Run the Python service on port 
 
 ## Interface
 
-The black sky, compact star points, and separated controls follow [docs/ui-design.md](docs/ui-design.md). After generation, the dock shows a trace panel and a bottom row of pipeline stage images; **This session** lists constellations created in the current app session.
+The black sky, compact star points, and separated controls follow [docs/ui-design.md](docs/ui-design.md). Swipe down on the dock handle for the full sky, then swipe up to restore the controls. After generation, the bottom row shows pipeline stage images; **This session** lists constellations created in the current app session.
 
 The iOS interface uses the system Times New Roman font; Android uses its native serif fallback.

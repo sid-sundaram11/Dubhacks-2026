@@ -429,6 +429,7 @@ describe("pipeline stage previews", () => {
     state = appReducer(state, {
       type: "generation_finished",
       constellation,
+      at: 1_760_000_000_000,
       generationProbe: probe,
       inputPhotoUri: "file:///photo.jpg",
     });
@@ -439,6 +440,7 @@ describe("pipeline stage previews", () => {
     state = appReducer(state, {
       type: "generation_finished",
       constellation,
+      at: 1_760_000_100_000,
       generationProbe: probe,
       inputPhotoUri: null,
     });
@@ -448,6 +450,7 @@ describe("pipeline stage previews", () => {
     expect(state.constellation).toBeNull();
     expect(state.sessionConstellations).toHaveLength(1);
     expect(state.sessionConstellations[0]?.subjectPng).toBe(probe.stages.found);
+    expect(state.sessionConstellations[0]?.addedAt).toBe(1_760_000_000_000);
     state = appReducer(state, { type: "recall_constellation", id: constellation.id });
     expect(state.constellation?.id).toBe(constellation.id);
   });
@@ -470,16 +473,19 @@ describe("pipeline stage previews", () => {
     let state = appReducer(initialAppState, {
       type: "generation_finished",
       constellation: first,
+      at: 1_760_000_000_000,
       generationProbe: probe,
       inputPhotoUri: null,
     });
     state = appReducer(state, {
       type: "generation_finished",
       constellation: second,
+      at: 1_760_000_100_000,
       generationProbe: probe,
       inputPhotoUri: null,
     });
     expect(state.sessionConstellations.map((item) => item.constellation.name)).toEqual(["Sky Dog", "Sky Cat"]);
+    expect(state.sessionConstellations.map((item) => item.addedAt)).toEqual([1_760_000_000_000, 1_760_000_100_000]);
     expect(state.constellation?.name).toBe("Sky Cat");
   });
 });
@@ -487,16 +493,19 @@ describe("pipeline stage previews", () => {
 describe("editor", () => {
   it("adds, ignores duplicates, undoes, and clears only after confirmation", () => {
     let state = appReducer(initialAppState, { type: "toggle_manual" });
-    state = appReducer(state, { type: "manual_tap", id: 10 });
-    state = appReducer(state, { type: "manual_tap", id: 10 });
+    state = appReducer(state, { type: "manual_tap", id: 10, at: 100 });
+    state = appReducer(state, { type: "manual_tap", id: 10, at: 200 });
     expect(state.constellation).toBeNull();
-    state = appReducer(state, { type: "manual_tap", id: 11 });
-    state = appReducer(state, { type: "manual_tap", id: 10 });
+    state = appReducer(state, { type: "manual_tap", id: 11, at: 300 });
+    state = appReducer(state, { type: "manual_tap", id: 10, at: 400 });
     expect(state.constellation?.segments).toHaveLength(1);
-    state = appReducer(state, { type: "undo" });
+    expect(state.sessionConstellations[0]?.addedAt).toBe(300);
+    state = appReducer(state, { type: "undo", at: 500 });
     expect(state.constellation?.segments).toHaveLength(0);
+    expect(state.sessionConstellations[0]?.addedAt).toBe(300);
     expect(appReducer(state, { type: "request_clear" }).confirmClear).toBe(false);
-    state = appReducer(state, { type: "manual_tap", id: 12 });
+    state = appReducer(state, { type: "manual_tap", id: 12, at: 600 });
+    expect(state.sessionConstellations[0]?.addedAt).toBe(300);
     state = appReducer(state, { type: "request_clear" });
     expect(state.confirmClear).toBe(true);
     state = appReducer(state, { type: "confirm_clear" });

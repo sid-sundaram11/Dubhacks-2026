@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text } from "react-native";
-import { palette, serif } from "../theme";
+import { palette, rounded } from "../theme";
 
 interface ControlButtonProps {
   label: string;
@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
   button: { minHeight: 44, minWidth: 44, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 6, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: palette.border, backgroundColor: palette.surface },
   selected: { backgroundColor: palette.text, borderColor: palette.text },
   icon: { width: 44, paddingHorizontal: 0 },
-  text: { fontFamily: serif, color: palette.text, fontSize: 16 },
+  text: { fontFamily: rounded, color: palette.text, fontSize: 16 },
   selectedText: { color: palette.sky },
   symbol: { fontSize: 24, lineHeight: 26 },
   pressed: { opacity: 0.65 },

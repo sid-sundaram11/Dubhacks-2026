@@ -6,6 +6,7 @@ import { appendSegment, undoSegment } from "../features/constellation/editor";
 export interface SavedConstellation {
   constellation: CustomConstellation;
   subjectPng: string | null;
+  addedAt: number;
 }
 
 export interface AppState {
@@ -42,9 +43,9 @@ export const initialAppState: AppState = {
 
 export type AppAction =
   | { type: "set_prompt"; prompt: string }
-  | { type: "select_star"; id: StarId }
+  | { type: "select_star"; id: StarId; at: number }
   | { type: "clear_selection" }
-  | { type: "manual_tap"; id: StarId }
+  | { type: "manual_tap"; id: StarId; at: number }
   | { type: "toggle_manual" }
   | { type: "generation_started" }
   | {
@@ -52,6 +53,7 @@ export type AppAction =
       constellation: CustomConstellation;
       generationProbe: GenerationTrace | null;
       inputPhotoUri: string | null;
+      at: number;
     }
   | { type: "generation_failed" }
   | { type: "generation_unreachable" }
@@ -63,7 +65,7 @@ export type AppAction =
   | { type: "generation_needs_zoom" }
   | { type: "set_status"; message: string }
   | { type: "recall_constellation"; id: string }
-  | { type: "undo" }
+  | { type: "undo"; at: number }
   | { type: "request_clear" }
   | { type: "confirm_clear" }
   | { type: "cancel_clear" }
@@ -72,14 +74,16 @@ export type AppAction =
 function remember(
   session: readonly SavedConstellation[],
   constellation: CustomConstellation,
+  addedAt: number,
   subjectPng?: string | null,
 ): SavedConstellation[] {
   const index = session.findIndex((item) => item.constellation.id === constellation.id);
-  if (index < 0) return [...session, { constellation, subjectPng: subjectPng ?? null }];
+  if (index < 0) return [...session, { constellation, subjectPng: subjectPng ?? null, addedAt }];
   const next = [...session];
   next[index] = {
     constellation,
     subjectPng: subjectPng === undefined ? session[index]!.subjectPng : subjectPng,
+    addedAt: session[index]!.addedAt,
   };
   return next;
 }
@@ -106,7 +110,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "set_prompt":
       return { ...state, prompt: action.prompt };
     case "select_star":
-      if (state.mode === "manual") return appReducer(state, { type: "manual_tap", id: action.id });
+      if (state.mode === "manual") return appReducer(state, { type: "manual_tap", id: action.id, at: action.at });
       return { ...state, selectedStarId: action.id, confirmClear: false };
     case "clear_selection":
       return { ...state, selectedStarId: null };
@@ -133,7 +137,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         selectedStarId: action.id,
         pathStarId: action.id,
         constellation,
-        sessionConstellations: remember(state.sessionConstellations, constellation),
+        sessionConstellations: remember(state.sessionConstellations, constellation, action.at),
         edited: state.edited || edited,
         confirmClear: false,
         statusMessage: "Segment added.",
@@ -162,6 +166,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         sessionConstellations: remember(
           state.sessionConstellations,
           action.constellation,
+          action.at,
           action.generationProbe?.stages.found ?? null,
         ),
         statusMessage: action.constellation.name,
@@ -254,7 +259,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         sessionConstellations: remember(state.sessionConstellations, {
           ...state.constellation,
           segments: undone.segments,
-        }),
+        }, action.at),
         pathStarId: undone.pathStarId,
         confirmClear: false,
         statusMessage: "Removed the last segment.",

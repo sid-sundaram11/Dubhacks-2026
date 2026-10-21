@@ -1,0 +1,169 @@
+<!-- 
+  ORBIT — RECOVERABLE COMPONENT: Interactive J2000 Star Atlas
+  To restore this section to landing/index.html, paste this block right after 
+  the </section> of #pipeline and before <section id="architecture">.
+-->
+
+<section id="sky-atlas" class="page-section">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title">Interactive Star Atlas</h2>
+      <p class="section-subtitle">
+        Look around the night sky, click on stars to see their names and distances, and view constellations drawn between them.
+      </p>
+    </div>
+
+    <div class="sky-atlas-container">
+      <!-- Sky Canvas Container -->
+      <div class="sky-canvas-wrapper" id="sky-wrapper">
+        <canvas id="sky-interactive-canvas"></canvas>
+
+        <div class="canvas-hud-top">
+          <div class="hud-chip">
+            <span class="indicator"></span>
+            <span id="hud-target-name">Aim: Betelgeuse (Orion)</span>
+          </div>
+          <div class="hud-chip mono">
+            <span id="hud-coordinates">&alpha;: 05h 55m &middot; &delta;: +07&deg; 24&prime;</span>
+          </div>
+          <div class="hud-chip mono">
+            <span id="hud-fov">FOV: 60&deg;</span>
+          </div>
+        </div>
+
+        <div class="canvas-hud-bottom">
+          Drag to pan sky &middot; Scroll to zoom &middot; Click any star to inspect
+        </div>
+
+        <div class="canvas-quick-controls">
+          <button type="button" class="icon-btn" id="btn-zoom-in" title="Zoom In">+</button>
+          <button type="button" class="icon-btn" id="btn-zoom-out" title="Zoom Out">&minus;</button>
+          <button type="button" class="icon-btn" id="btn-reset-view" title="Reset View">&#x21ba;</button>
+        </div>
+      </div>
+
+      <!-- Sidebar Controls & Star Inspector -->
+      <div class="sky-sidebar">
+        
+        <!-- Layer Toggles -->
+        <div class="sidebar-panel">
+          <div class="panel-title">
+            <span>Display Overlays</span>
+            <span>Layers</span>
+          </div>
+          <div class="toggle-stack">
+            <label class="toggle-item">
+              <span>Orbit Constellation (Eagle)</span>
+              <input type="checkbox" id="chk-orbit-lines" checked>
+            </label>
+            <label class="toggle-item">
+              <span>Traditional Constellations</span>
+              <input type="checkbox" id="chk-traditional-lines" checked>
+            </label>
+            <label class="toggle-item">
+              <span>Sky Coordinate Grid</span>
+              <input type="checkbox" id="chk-grid" checked>
+            </label>
+            <label class="toggle-item">
+              <span>Star Names</span>
+              <input type="checkbox" id="chk-labels" checked>
+            </label>
+            <label class="toggle-item">
+              <span>Photo Cutout Ghost (38%)</span>
+              <input type="checkbox" id="chk-ghost">
+            </label>
+          </div>
+        </div>
+
+        <!-- Fast Aim Presets -->
+        <div class="sidebar-panel">
+          <div class="panel-title">
+            <span>Quick Aim Jump</span>
+            <span>Presets</span>
+          </div>
+          <div class="aim-btn-grid">
+            <button type="button" class="aim-btn" data-ra="5.92" data-dec="7.41" data-name="Betelgeuse (Orion)">
+              Orion / Betelgeuse
+            </button>
+            <button type="button" class="aim-btn" data-ra="19.84" data-dec="8.87" data-name="Altair (Aquila)">
+              Aquila / Altair
+            </button>
+            <button type="button" class="aim-btn" data-ra="11.5" data-dec="55.0" data-name="Big Dipper (Ursa Major)">
+              Big Dipper
+            </button>
+            <button type="button" class="aim-btn" data-ra="20.7" data-dec="45.3" data-name="Deneb (Cygnus)">
+              Cygnus / Deneb
+            </button>
+          </div>
+        </div>
+
+        <!-- Astrometric Star Inspector -->
+        <div class="sidebar-panel" id="star-inspector-panel">
+          <div class="panel-title">
+            <span>Star Details</span>
+            <span id="inspector-status" style="color: var(--stellar-azure)">Selected</span>
+          </div>
+          <div class="star-inspector-content" id="star-inspector-body">
+            <div class="star-hero-row">
+              <div>
+                <div class="star-name-large" id="insp-name">Betelgeuse</div>
+                <div class="star-desig mono" id="insp-desig">&alpha; Orionis &middot; HYG #27919</div>
+              </div>
+              <div class="star-swatch" id="insp-swatch" style="background-color: rgb(255, 148, 97);"></div>
+            </div>
+
+            <div class="star-data-grid">
+              <div class="data-cell">
+                <span class="data-label">Right Ascension</span>
+                <span class="data-val" id="insp-ra">05h 55m 10s</span>
+              </div>
+              <div class="data-cell">
+                <span class="data-label">Declination</span>
+                <span class="data-val" id="insp-dec">+07&deg; 24&prime; 25&Prime;</span>
+              </div>
+              <div class="data-cell">
+                <span class="data-label">Brightness (Magnitude)</span>
+                <span class="data-val" id="insp-mag">0.45</span>
+              </div>
+              <div class="data-cell">
+                <span class="data-label">Color &amp; Type</span>
+                <span class="data-val" id="insp-ci">+1.50 (Red Giant)</span>
+              </div>
+              <div class="data-cell">
+                <span class="data-label">Constellation</span>
+                <span class="data-val" id="insp-con">Orion (Ori)</span>
+              </div>
+              <div class="data-cell">
+                <span class="data-label">Distance</span>
+                <span class="data-val" id="insp-dist">642.5 light-years</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Manual Drawing Tool -->
+        <div class="sidebar-panel">
+          <div class="panel-title">
+            <span>Manual Drawing</span>
+            <span id="manual-mode-badge" style="color: var(--starlight-dim)">Inactive</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--starlight-muted);">
+            Click stars on the map to connect your own constellation lines.
+          </p>
+          <div class="manual-draw-bar">
+            <button type="button" class="btn-quiet" id="btn-toggle-manual">
+              <span>Enable Draw</span>
+            </button>
+            <button type="button" class="btn-quiet" id="btn-undo-manual" disabled>
+              <span>Undo</span>
+            </button>
+            <button type="button" class="btn-quiet" id="btn-clear-manual" disabled>
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>

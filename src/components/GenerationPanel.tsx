@@ -1,6 +1,6 @@
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { PROMPT_MAX } from "../domain/constants";
-import { palette, serif } from "../theme";
+import { palette, rounded } from "../theme";
 
 interface GenerationPanelProps {
   imageUri: string | null;
@@ -66,18 +66,18 @@ export function GenerationPanel({
 
 const styles = StyleSheet.create({
   panel: { gap: 12 },
-  label: { fontFamily: serif, color: palette.text, fontSize: 24 },
+  label: { fontFamily: rounded, color: palette.text, fontSize: 24 },
   composer: { flexDirection: "row", alignItems: "center", gap: 8, padding: 6, backgroundColor: palette.raised, borderColor: palette.border, borderWidth: 1, borderRadius: 8 },
   pick: { flex: 1, minWidth: 0, minHeight: 48, paddingHorizontal: 10, justifyContent: "center" },
-  pickText: { fontFamily: serif, fontSize: 17, color: palette.secondary, textDecorationLine: "underline" },
+  pickText: { fontFamily: rounded, fontSize: 17, color: palette.secondary, textDecorationLine: "underline" },
   thumbnail: { width: 48, height: 48, borderRadius: 4, backgroundColor: palette.sky },
   generate: { width: 48, minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 4, backgroundColor: palette.text },
-  generateText: { fontFamily: serif, color: palette.sky, fontSize: 28 },
+  generateText: { fontFamily: rounded, color: palette.sky, fontSize: 28 },
   disabled: { opacity: 0.4 },
   pressed: { opacity: 0.65 },
-  promptLabel: { fontFamily: serif, color: palette.secondary, fontSize: 15 },
+  promptLabel: { fontFamily: rounded, color: palette.secondary, fontSize: 15 },
   promptInput: {
-    fontFamily: serif,
+    fontFamily: rounded,
     fontSize: 17,
     color: palette.text,
     paddingHorizontal: 12,

@@ -1,0 +1,816 @@
+/* Orbit — AI Constellation Creator
+   Celestial Space Theme
+   Headings: EB Garamond (Editorial Serif)
+   Informational Text / Body: Geist (Geometric Sans)
+   Coordinates / Code: Geist Mono
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+
+:root {
+  --cosmos-bg: #010306;
+  --cosmos-surface: #060b13;
+  --cosmos-raised: #0b121e;
+  --cosmos-border: #15202e;
+  --cosmos-border-subtle: #0d1622;
+  --cosmos-border-active: #2b3e55;
+
+  --starlight-ivory: #f4f1ea;
+  --starlight-muted: #8e9ca8;
+  --starlight-dim: #546270;
+  
+  --stellar-azure: #9ecbd0;
+  --stellar-azure-dim: rgba(158, 203, 208, 0.15);
+  --stellar-gold: #e5be7a;
+  --stellar-gold-dim: rgba(229, 190, 122, 0.15);
+
+  --font-display: "EB Garamond", Garamond, Georgia, serif;
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", "SF Mono", Consolas, Menlo, monospace;
+
+  --container-max: 1140px;
+  --header-height: 72px;
+  --transition-smooth: 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background-color: var(--cosmos-bg);
+  color: var(--starlight-ivory);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  background-color: var(--cosmos-bg);
+}
+
+/* Background atmospheric starlight */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 50% 12%, rgba(20, 38, 60, 0.35) 0%, transparent 65%),
+    radial-gradient(circle at 80% 80%, rgba(14, 25, 40, 0.2) 0%, transparent 50%),
+    radial-gradient(circle at 20% 70%, rgba(12, 22, 35, 0.18) 0%, transparent 45%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Canvas backdrop */
+#celestial-hero-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.65;
+}
+
+.content-wrapper {
+  position: relative;
+  z-index: 2;
+}
+
+/* Typography styles */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--starlight-ivory);
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+
+p {
+  color: var(--starlight-muted);
+  line-height: 1.6;
+  letter-spacing: -0.015em;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--transition-smooth);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1, "zero" 1;
+}
+
+/* Layout container */
+.container {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* Header: Centered, Only ORBIT (Hides on Scroll Down) */
+header.site-header {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(1, 3, 6, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--cosmos-border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+
+header.site-header.header-hidden {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.brand-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  color: var(--starlight-ivory);
+}
+
+.brand-glyph {
+  color: var(--stellar-azure);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* Hero Section: Centered, Minimal, Editorial */
+section.hero-section {
+  padding: 6.5rem 0 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 860px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 5;
+}
+
+.hero-title {
+  font-size: clamp(2.8rem, 6.2vw, 4.6rem);
+  font-weight: 500;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.5rem;
+  color: #ffffff;
+}
+
+.hero-lead {
+  font-family: var(--font-sans);
+  font-size: clamp(1.08rem, 2vw, 1.22rem);
+  font-weight: 450;
+  color: rgba(255, 255, 255, 0.88);
+  max-width: 600px;
+  margin-bottom: 2.75rem;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+}
+
+.hero-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-bottom: 3.5rem;
+}
+
+.btn-primary {
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--cosmos-bg);
+  background: var(--starlight-ivory);
+  border: 1px solid var(--starlight-ivory);
+  padding: 0.8rem 1.85rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all var(--transition-smooth);
+}
+
+.btn-primary:hover {
+  background: #ffffff;
+  box-shadow: 0 0 25px rgba(244, 241, 234, 0.25);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--starlight-ivory);
+  background: rgba(11, 18, 30, 0.7);
+  border: 1px solid var(--cosmos-border);
+  padding: 0.8rem 1.85rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all var(--transition-smooth);
+}
+
+.btn-secondary:hover {
+  border-color: var(--stellar-azure);
+  background: var(--cosmos-raised);
+  transform: translateY(-1px);
+}
+
+/* Sketched Mountain & Rising Sun Gradient Layer */
+.hero-mountain-layer {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  margin-top: 1rem;
+  pointer-events: none;
+  transition: transform 0.1s linear, opacity 0.1s linear;
+  will-change: transform, opacity;
+}
+
+.sunrise-glow-shader {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 80% at 50% 100%, 
+    rgba(255, 213, 158, 0.45) 0%, 
+    rgba(242, 125, 82, 0.32) 25%, 
+    rgba(128, 42, 75, 0.20) 50%, 
+    rgba(42, 20, 56, 0.10) 75%, 
+    transparent 100%);
+  pointer-events: none;
+}
+
+.mountain-svg-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.mountain-sketch-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: bottom;
+  display: block;
+}
+
+/* Section Common Structure */
+section.page-section {
+  padding: 6.5rem 0;
+  border-top: 1px solid var(--cosmos-border-subtle);
+  position: relative;
+  scroll-margin-top: calc(var(--header-height) + 1.5rem);
+}
+
+.section-header {
+  text-align: center;
+  max-width: 720px;
+  margin: 0 auto 3.5rem;
+}
+
+.section-title {
+  font-size: clamp(2.2rem, 3.8vw, 3rem);
+  font-weight: 500;
+  margin-bottom: 0.85rem;
+  color: #ffffff;
+}
+
+.section-subtitle {
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  font-weight: 400;
+  color: var(--starlight-muted);
+  line-height: 1.55;
+  letter-spacing: -0.015em;
+}
+
+/* =========================================================================
+   INTERACTIVE STAR ATLAS DEMO (GIRAFFE SKELETONIZATION & CONSTELLATION)
+   ========================================================================= */
+.demo-player-card {
+  background: var(--cosmos-surface);
+  border: 1px solid var(--cosmos-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+
+.demo-player-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.25rem 1.75rem;
+  background: var(--cosmos-raised);
+  border-bottom: 1px solid var(--cosmos-border);
+}
+
+.demo-play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--starlight-ivory);
+  color: var(--cosmos-bg);
+  border: 1px solid var(--starlight-ivory);
+  padding: 0.65rem 1.4rem;
+  border-radius: 9999px;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-smooth);
+}
+
+.demo-play-btn:hover {
+  background: #ffffff;
+  box-shadow: 0 0 20px rgba(244, 241, 234, 0.3);
+  transform: translateY(-1px);
+}
+
+.demo-play-btn.playing {
+  background: var(--stellar-gold);
+  border-color: var(--stellar-gold);
+  color: #000000;
+}
+
+.demo-steps-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.demo-step-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--cosmos-surface);
+  border: 1px solid var(--cosmos-border);
+  color: var(--starlight-muted);
+  padding: 0.55rem 1rem;
+  border-radius: 9999px;
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 450;
+  cursor: pointer;
+  transition: all var(--transition-smooth);
+}
+
+.demo-step-pill:hover {
+  border-color: var(--cosmos-border-active);
+  color: var(--starlight-ivory);
+}
+
+.demo-step-pill.active {
+  border-color: var(--stellar-azure);
+  color: var(--starlight-ivory);
+  background: var(--stellar-azure-dim);
+  box-shadow: 0 0 16px rgba(158, 203, 208, 0.18);
+}
+
+.demo-step-pill .step-num {
+  font-size: 0.76rem;
+  color: var(--stellar-azure);
+}
+
+/* Viewport */
+.demo-viewport {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  background: #010204;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.demo-stage-view {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  opacity: 0;
+  transition: opacity 280ms ease;
+  align-items: center;
+  justify-content: center;
+}
+
+.demo-stage-view.active {
+  display: flex !important;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#demo-main-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  max-height: 480px;
+  padding: 1.5rem;
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.6));
+}
+
+#interactive-sky-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+
+#interactive-sky-canvas:active {
+  cursor: grabbing;
+}
+
+.sky-ghost-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+  z-index: 5;
+}
+
+.sky-ghost-overlay.visible {
+  opacity: 0.38;
+}
+
+.sky-interactive-hint {
+  position: absolute;
+  bottom: 1.25rem;
+  left: 1.5rem;
+  z-index: 10;
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 450;
+  color: var(--starlight-muted);
+  background: rgba(6, 11, 19, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--cosmos-border);
+  padding: 0.45rem 0.95rem;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.sky-overlay-toggle-bar {
+  position: absolute;
+  bottom: 1.25rem;
+  right: 1.5rem;
+  z-index: 10;
+}
+
+.btn-toggle-sky {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--starlight-muted);
+  background: rgba(6, 11, 19, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--cosmos-border);
+  padding: 0.5rem 1.05rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all var(--transition-smooth);
+}
+
+.btn-toggle-sky:hover {
+  color: var(--starlight-ivory);
+  border-color: var(--cosmos-border-active);
+}
+
+.btn-toggle-sky.active {
+  border-color: var(--stellar-azure);
+  color: var(--stellar-azure);
+  background: var(--stellar-azure-dim);
+}
+
+/* Caption bar */
+.demo-caption-bar {
+  padding: 1.4rem 1.75rem;
+  background: var(--cosmos-raised);
+  border-top: 1px solid var(--cosmos-border);
+  position: relative;
+}
+
+.caption-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 0.4rem;
+}
+
+.caption-badge {
+  font-size: 0.72rem;
+  color: var(--stellar-gold);
+  background: var(--stellar-gold-dim);
+  border: 1px solid rgba(229, 190, 122, 0.3);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.caption-title {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 500;
+  color: #ffffff;
+  margin: 0;
+}
+
+.caption-desc {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  color: var(--starlight-muted);
+  line-height: 1.55;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.demo-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--cosmos-border-subtle);
+}
+
+.demo-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--stellar-azure);
+  transition: width 0.1s linear;
+}
+
+/* =========================================================================
+   UNDER THE HOOD / POWERPOINT SMARTART PROCESS FLOWCHART
+   ========================================================================= */
+.smartart-flowchart {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-bottom: 4rem;
+}
+
+.smartart-card {
+  background: linear-gradient(180deg, #091322 0%, #050b14 100%);
+  border: 1px solid var(--cosmos-border);
+  border-radius: 14px;
+  padding: 1.4rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  position: relative;
+  transition: all var(--transition-smooth);
+}
+
+.smartart-card:hover {
+  border-color: var(--cosmos-border-active);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+}
+
+.smartart-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.smartart-step-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--cosmos-bg);
+  background: var(--stellar-gold);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.smartart-phase-name {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--stellar-azure);
+}
+
+.smartart-visual {
+  width: 100%;
+  height: 110px;
+  background: #020509;
+  border: 1px solid var(--cosmos-border-subtle);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+}
+
+.smartart-diagram-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.smartart-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.smartart-action {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.smartart-desc {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--starlight-muted);
+  line-height: 1.45;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.smartart-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.15rem;
+}
+
+.chevron-svg {
+  width: 18px;
+  height: 32px;
+  opacity: 0.8;
+}
+
+/* Local Run Code Terminal */
+.code-terminal {
+  background: #000000;
+  border: 1px solid var(--cosmos-border);
+  border-radius: 12px;
+  overflow: hidden;
+  max-width: 860px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  background: var(--cosmos-surface);
+  border-bottom: 1px solid var(--cosmos-border-subtle);
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  color: var(--starlight-dim);
+}
+
+.terminal-dots {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.terminal-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cosmos-border);
+}
+
+.terminal-body {
+  padding: 1.35rem 1.65rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--starlight-ivory);
+  line-height: 1.7;
+  overflow-x: auto;
+}
+
+.terminal-body .cmd {
+  color: var(--starlight-ivory);
+}
+
+.terminal-body .comment {
+  color: var(--starlight-dim);
+}
+
+.terminal-body .prompt {
+  color: var(--stellar-azure);
+  user-select: none;
+}
+
+/* Footer: Centered & Minimal */
+footer.site-footer {
+  border-top: 1px solid var(--cosmos-border-subtle);
+  padding: 4.5rem 0 3.5rem;
+  text-align: center;
+}
+
+.footer-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.footer-brand h3 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  color: var(--starlight-ivory);
+  margin-bottom: 0.4rem;
+}
+
+.footer-brand p {
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  color: var(--starlight-muted);
+}
+
+.footer-bottom {
+  font-size: 0.78rem;
+  color: var(--starlight-dim);
+  border-top: 1px solid var(--cosmos-border-subtle);
+  padding-top: 1.5rem;
+  width: 100%;
+  max-width: 500px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .smartart-flowchart {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+
+  .smartart-chevron {
+    display: none;
+  }
+}
+
+@media (max-width: 680px) {
+  .smartart-flowchart {
+    grid-template-columns: 1fr;
+  }
+
+  .demo-viewport {
+    height: 380px;
+  }
+}

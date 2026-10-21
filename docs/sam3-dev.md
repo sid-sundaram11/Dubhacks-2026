@@ -44,7 +44,7 @@ SAM3 inference has a **120s** server-side timeout and the device request has a *
 1. Pick a photo from the library.
 2. Optionally enter **Subject in the photo** (e.g. `dog`, `person`). Empty uses SAM3 default prompt `object`.
 3. Generate. The server segments with SAM3, skeletonizes the **96×96** mask grid (`MASK_SIZE` in `src/domain/constants.ts`), and returns strokes for the client to snap to visible HYG stars.
-4. After success, check the dock **Generation trace** and the **bottom stage thumbnails**. Use **This session** chips to switch constellations. Tap the figure on the sky to toggle the subject cutout overlay.
+4. After success, check the **bottom stage thumbnails**. Use **This session** chips to switch constellations. Tap the figure on the sky to toggle the subject cutout overlay. Swipe down on the dock handle for the full sky and up to restore controls.
 
 ## Manual QA checklist
 

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { palette, serif } from "../theme";
+import { palette, rounded } from "../theme";
 import { ControlButton } from "./ControlButton";
 
 interface ActionBarProps {
@@ -45,5 +45,5 @@ const styles = StyleSheet.create({
   container: { gap: 12 },
   row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   confirmation: { gap: 10, borderTopWidth: 1, borderColor: palette.border, paddingTop: 12 },
-  message: { fontFamily: serif, fontSize: 17, color: palette.text },
+  message: { fontFamily: rounded, fontSize: 17, color: palette.text },
 });

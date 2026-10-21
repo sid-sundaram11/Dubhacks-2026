@@ -11,9 +11,9 @@ export const palette = {
   accent: "#9ecbd0",
 };
 
-// Times New Roman is built into iOS. Android uses its native serif fallback.
-export const serif = Platform.select({
-  ios: "Times New Roman",
-  android: "serif",
-  default: "Times New Roman",
+// Native rounded faces avoid a font download during the first sky render.
+export const rounded = Platform.select({
+  ios: "AvenirNextRounded-Regular",
+  android: "sans-serif-rounded",
+  default: "Arial Rounded MT Bold",
 })!;

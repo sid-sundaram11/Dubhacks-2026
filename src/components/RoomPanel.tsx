@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { normalizeRoomCode, ROOM_CODE_LENGTH } from "../features/rooms/roomCode";
 import type { RoomState } from "../features/rooms/roomReducer";
-import { palette, serif } from "../theme";
+import { palette, rounded } from "../theme";
 
 interface RoomPanelProps {
   room: RoomState;
@@ -117,8 +117,8 @@ function RoomAction({ label, onPress, disabled }: { label: string; onPress: () =
 
 const styles = StyleSheet.create({
   panel: { gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderColor: palette.border, paddingTop: 14 },
-  heading: { fontFamily: serif, color: palette.muted, fontSize: 12, letterSpacing: 1.2 },
-  hint: { fontFamily: serif, color: palette.secondary, fontSize: 14, lineHeight: 20 },
+  heading: { fontFamily: rounded, color: palette.muted, fontSize: 12, letterSpacing: 1.2 },
+  hint: { fontFamily: rounded, color: palette.secondary, fontSize: 14, lineHeight: 20 },
   disconnected: { gap: 8 },
   connected: { gap: 8 },
   row: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
@@ -130,20 +130,20 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
     borderRadius: 8,
     paddingHorizontal: 12,
-    fontFamily: serif,
+    fontFamily: rounded,
     color: palette.text,
     fontSize: 18,
     letterSpacing: 2,
     backgroundColor: palette.raised,
   },
-  roomCode: { fontFamily: serif, color: palette.text, fontSize: 17 },
-  members: { fontFamily: serif, color: palette.muted, fontSize: 14 },
-  selectableCode: { fontFamily: serif, color: palette.accent, fontSize: 16, letterSpacing: 2 },
-  status: { fontFamily: serif, color: palette.accent, fontSize: 14 },
+  roomCode: { fontFamily: rounded, color: palette.text, fontSize: 17 },
+  members: { fontFamily: rounded, color: palette.muted, fontSize: 14 },
+  selectableCode: { fontFamily: rounded, color: palette.accent, fontSize: 16, letterSpacing: 2 },
+  status: { fontFamily: rounded, color: palette.accent, fontSize: 14 },
   errorRow: { gap: 6 },
-  error: { fontFamily: serif, color: palette.accent, fontSize: 14, lineHeight: 20 },
+  error: { fontFamily: rounded, color: palette.accent, fontSize: 14, lineHeight: 20 },
   retry: { minHeight: 44, justifyContent: "center" },
-  retryText: { fontFamily: serif, color: palette.text, fontSize: 15, textDecorationLine: "underline" },
+  retryText: { fontFamily: rounded, color: palette.text, fontSize: 15, textDecorationLine: "underline" },
   action: {
     minHeight: 44,
     justifyContent: "center",
@@ -155,5 +155,5 @@ const styles = StyleSheet.create({
   },
   actionPressed: { opacity: 0.7 },
   actionDisabled: { opacity: 0.35 },
-  actionText: { fontFamily: serif, color: palette.text, fontSize: 15 },
+  actionText: { fontFamily: rounded, color: palette.text, fontSize: 15 },
 });

@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState, type ComponentRef } from "react";
 import { AccessibilityInfo, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createAnalytics } from "../domain/analytics";
 import type { PipelineStageImages } from "../domain/generation";
 import { INITIAL_FOV } from "../domain/constants";
 import { appReducer, initialAppState } from "./appReducer";
 import { ActionBar } from "../components/ActionBar";
-import { ConstellationCard } from "../components/ConstellationCard";
 import { GenerationPanel } from "../components/GenerationPanel";
-import { GenerationProbePanel } from "../components/GenerationProbePanel";
 import { ControlButton } from "../components/ControlButton";
-import { palette, serif } from "../theme";
+import { palette, rounded } from "../theme";
 import { StarDetails } from "../components/StarDetails";
 import { loadBundledCatalog } from "../features/catalog/catalogLoader";
 import { displayName } from "../features/catalog/displayName";
@@ -30,6 +29,17 @@ import { useRoom } from "../features/rooms/useRoom";
 const analytics = createAnalytics();
 const HYG_URL = "https://github.com/astronexus/HYG-Database";
 
+function addedDate(value: number | Date | null | undefined): string | null {
+  if (value == null) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 const BOTTOM_STAGE_IMAGES: { key: keyof PipelineStageImages; label: string }[] = [
   { key: "found", label: "1 Found" },
   { key: "mask", label: "2 Mask" },
@@ -41,6 +51,7 @@ export function SkyScreen() {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [compactSky, setCompactSky] = useState(false);
+  const [dockCollapsed, setDockCollapsed] = useState(false);
   const [photo, setPhoto] = useState<PickedSubject | null>(null);
   const dockHeight = Math.min(360, (height - insets.top - insets.bottom) * 0.44);
   const stars = useMemo(() => loadBundledCatalog(), []);
@@ -54,6 +65,13 @@ export function SkyScreen() {
   const [showSubject, setShowSubject] = useState(false);
   const skyRef = useRef<SkyViewHandle>(null);
   const dockRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const dockGesture = useMemo(
+    () => Gesture.Pan().minDistance(12).runOnJS(true).onEnd((event) => {
+      if (event.translationY > 45 || event.velocityY > 600) setDockCollapsed(true);
+      if (event.translationY < -45 || event.velocityY < -600) setDockCollapsed(false);
+    }),
+    [],
+  );
 
   const onPublishFailed = useCallback(
     (message: string) => dispatch({ type: "set_status", message }),
@@ -154,6 +172,7 @@ export function SkyScreen() {
       dispatch({
         type: "generation_finished",
         constellation: result.constellation,
+        at: Date.now(),
         inputPhotoUri: photo.previewUri,
         generationProbe: result.stageImages
           ? {
@@ -201,7 +220,7 @@ export function SkyScreen() {
       const uri = await skyRef.current?.capturePng({
         name: state.constellation.name,
         story: state.constellation.story,
-        attribution: "Stars from the HYG Database v4.2. Made with Constellations.",
+        attribution: "Stars from the HYG Database v4.2. Made with Orbit.",
       });
       if (!uri) throw new Error("Snapshot unavailable");
       analytics.track({ name: "share_exported", at: Date.now() });
@@ -214,11 +233,10 @@ export function SkyScreen() {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <Text style={styles.eyebrow}>A LITTLE WONDER, ABOVE US</Text>
-        <Text accessibilityRole="header" style={styles.title}>Constellations</Text>
-      </View>
+    <View style={styles.screen}>
+      {!dockCollapsed ? <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+        <Text accessibilityRole="header" style={styles.title}>Orbit</Text>
+      </View> : null}
       <View style={styles.sky} onLayout={(event) => setCompactSky(event.nativeEvent.layout.height < 190)}>
         <SkyView
           ref={skyRef}
@@ -237,22 +255,34 @@ export function SkyScreen() {
           }}
           onSelectStar={(id) => {
             const before = state.constellation?.segments.length ?? 0;
-            dispatch({ type: "select_star", id });
+            dispatch({ type: "select_star", id, at: Date.now() });
             if (state.mode === "manual" && state.pathStarId != null && state.pathStarId !== id) {
               analytics.track({ name: "manual_segment_added", at: Date.now(), detail: { before } });
             }
           }}
         />
-        <View style={[styles.navigation, compactSky && styles.compactNavigation]}>
+        <View style={[styles.navigation, compactSky && styles.compactNavigation, dockCollapsed && { top: insets.top + 16 }]}>
           <ControlButton label="Zoom in" symbol="+" disabled={state.skyLocked} onPress={() => skyRef.current?.zoomBy(-8)} />
           <ControlButton label="Zoom out" symbol="−" disabled={state.skyLocked} onPress={() => skyRef.current?.zoomBy(8)} />
           <ControlButton label="Reset view" symbol="↺" disabled={state.skyLocked} onPress={() => skyRef.current?.reset()} />
         </View>
-        <View pointerEvents="none" style={styles.skyCaption}>
+        {!dockCollapsed ? <View pointerEvents="none" style={styles.skyCaption}>
           <Text style={styles.skyHint}>{state.mode === "manual" ? "Tap two stars to draw a line" : "Drag to explore  ·  Pinch to zoom"}</Text>
-        </View>
+        </View> : null}
       </View>
-      <View style={[styles.dock, { height: dockHeight, paddingBottom: state.generationProbe ? 8 : Math.max(insets.bottom, 12) }]}>
+      <View style={[styles.dock, { height: dockCollapsed ? 52 + insets.bottom : dockHeight, paddingBottom: dockCollapsed ? insets.bottom : state.generationProbe ? 8 : Math.max(insets.bottom, 12) }]}>
+        <GestureDetector gesture={dockGesture}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={dockCollapsed ? "Show Orbit controls" : "Hide controls to see the full star map"}
+            onPress={() => setDockCollapsed((collapsed) => !collapsed)}
+            style={styles.dockHandle}
+          >
+            <View style={styles.dockGrip} />
+            <Text style={styles.dockHandleText}>{dockCollapsed ? "Swipe up for controls" : "Swipe down for full sky"}</Text>
+          </Pressable>
+        </GestureDetector>
+        {!dockCollapsed ? (
         <ScrollView
           ref={dockRef}
           style={styles.dockScroll}
@@ -270,14 +300,6 @@ export function SkyScreen() {
               onClose={() => dispatch({ type: "clear_selection" })}
             />
           ) : null}
-          {state.constellation ? (
-            <ConstellationCard
-              name={state.constellation.name}
-              story={state.constellation.story}
-              source={state.constellation.source}
-              edited={state.edited}
-            />
-          ) : null}
           {roomState.status === "connected" && roomState.constellations.length > 0 ? (
             <View style={styles.session}>
               <Text style={styles.sessionLabel}>In this room</Text>
@@ -285,6 +307,7 @@ export function SkyScreen() {
                 {roomState.constellations.map((item) => {
                   const active = roomState.selectedSharedId === item.sharedId;
                   const mine = item.ownerUid === roomState.uid;
+                  const date = addedDate(item.createdAt);
                   return (
                     <Pressable
                       key={item.sharedId}
@@ -302,6 +325,9 @@ export function SkyScreen() {
                         {item.name}
                         {mine ? " · Mine" : ` · ${item.ownerLabel}`}
                       </Text>
+                      {active && date ? (
+                        <Text style={styles.sessionChipDate}>Added {date}</Text>
+                      ) : null}
                     </Pressable>
                   );
                 })}
@@ -313,7 +339,8 @@ export function SkyScreen() {
               <Text style={styles.sessionLabel}>This session</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sessionRow}>
                 {state.sessionConstellations.map((item) => {
-                  const active = item.constellation.id === state.constellation?.id;
+                  const active = roomState.selectedSharedId == null && item.constellation.id === state.constellation?.id;
+                  const date = addedDate(item.addedAt);
                   return (
                     <Pressable
                       key={item.constellation.id}
@@ -326,6 +353,7 @@ export function SkyScreen() {
                       style={[styles.sessionChip, active && styles.sessionChipActive]}
                     >
                       <Text style={styles.sessionChipText}>{item.constellation.name}</Text>
+                      {active && date ? <Text style={styles.sessionChipDate}>Added {date}</Text> : null}
                     </Pressable>
                   );
                 })}
@@ -358,7 +386,7 @@ export function SkyScreen() {
               confirmClear={state.confirmClear}
               hasConstellation={state.constellation != null}
               disabled={state.skyLocked || sharing}
-              onUndo={() => dispatch({ type: "undo" })}
+              onUndo={() => dispatch({ type: "undo", at: Date.now() })}
               onToggleManual={() => dispatch({ type: "toggle_manual" })}
               onClear={() => dispatch({ type: "request_clear" })}
               onConfirmClear={() => dispatch({ type: "confirm_clear" })}
@@ -378,13 +406,13 @@ export function SkyScreen() {
               {shareMessage ?? (sharing ? "Preparing your sky…" : state.statusMessage)}
             </Text>
           ) : null}
-          {state.generationProbe ? <GenerationProbePanel probe={state.generationProbe} /> : null}
           <Pressable accessibilityRole="link" accessibilityLabel="HYG Database attribution" onPress={() => void Linking.openURL(HYG_URL)} style={styles.attributionLink}>
             <Text style={styles.attribution}>Mapped with the HYG star catalog</Text>
           </Pressable>
         </ScrollView>
+        ) : null}
       </View>
-      {state.generationProbe ? (
+      {state.generationProbe && !dockCollapsed ? (
         <View style={[styles.stageBar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
           {BOTTOM_STAGE_IMAGES.map(({ key, label }) => (
             <View key={key} style={styles.stageCell}>
@@ -405,25 +433,28 @@ export function SkyScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: palette.sky },
-  header: { paddingHorizontal: 24, paddingTop: 14, paddingBottom: 20, gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: palette.border },
-  eyebrow: { fontFamily: serif, color: palette.muted, fontSize: 10, letterSpacing: 2.4 },
-  title: { fontFamily: serif, color: palette.text, fontSize: 38, letterSpacing: -1 },
+  header: { paddingHorizontal: 24, paddingBottom: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: palette.border },
+  title: { fontFamily: rounded, color: palette.text, fontSize: 38, letterSpacing: -1 },
   sky: { flex: 1, minHeight: 100, overflow: "hidden" },
   navigation: { position: "absolute", top: 16, right: 16, gap: 8 },
   compactNavigation: { flexDirection: "row" },
   skyCaption: { position: "absolute", left: 16, right: 16, bottom: 12, alignItems: "center" },
-  skyHint: { fontFamily: serif, color: palette.muted, fontSize: 13, backgroundColor: palette.sky, paddingHorizontal: 10, paddingVertical: 4 },
+  skyHint: { fontFamily: rounded, color: palette.muted, fontSize: 13, backgroundColor: palette.sky, paddingHorizontal: 10, paddingVertical: 4 },
   dock: { flexShrink: 1, backgroundColor: palette.surface, borderTopWidth: 1, borderTopColor: palette.border },
+  dockHandle: { minHeight: 48, alignItems: "center", justifyContent: "center", gap: 6 },
+  dockGrip: { width: 38, height: 4, borderRadius: 2, backgroundColor: palette.muted },
+  dockHandleText: { fontFamily: rounded, color: palette.secondary, fontSize: 12 },
   dockScroll: { flexGrow: 0, flexShrink: 1 },
   dockContent: { paddingHorizontal: 20, paddingTop: 20, gap: 16, width: "100%", maxWidth: 680, alignSelf: "center" },
   tools: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: palette.border, paddingTop: 14 },
-  live: { fontFamily: serif, color: palette.accent, fontSize: 15, lineHeight: 21 },
+  live: { fontFamily: rounded, color: palette.accent, fontSize: 15, lineHeight: 21 },
   session: { gap: 8 },
-  sessionLabel: { fontFamily: serif, color: palette.muted, fontSize: 12, letterSpacing: 1.2 },
+  sessionLabel: { fontFamily: rounded, color: palette.muted, fontSize: 12, letterSpacing: 1.2 },
   sessionRow: { gap: 8 },
   sessionChip: { minHeight: 44, justifyContent: "center", paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: palette.border, backgroundColor: palette.raised },
   sessionChipActive: { borderColor: palette.accent },
-  sessionChipText: { fontFamily: serif, color: palette.text, fontSize: 15 },
+  sessionChipText: { fontFamily: rounded, color: palette.text, fontSize: 15 },
+  sessionChipDate: { fontFamily: rounded, color: palette.secondary, fontSize: 12, marginTop: 3 },
   stageBar: {
     flexDirection: "row",
     gap: 8,
@@ -442,7 +473,7 @@ const styles = StyleSheet.create({
     borderColor: palette.border,
     borderWidth: 1,
   },
-  stageCaption: { fontFamily: serif, color: palette.secondary, fontSize: 11, textAlign: "center" },
+  stageCaption: { fontFamily: rounded, color: palette.secondary, fontSize: 11, textAlign: "center" },
   attributionLink: { minHeight: 44, alignItems: "center", justifyContent: "center" },
-  attribution: { fontFamily: serif, color: palette.muted, fontSize: 12 },
+  attribution: { fontFamily: rounded, color: palette.muted, fontSize: 12 },
 });

@@ -1,6 +1,6 @@
-# Constellations — product description
+# Orbit — product description
 
-Constellations is a single-screen Expo app that turns a photo of something you care about into a drawing made of real stars. You explore a dark, accurate night sky, pick an image from your library, and the app places straight lines between actual stars from the HYG catalog so the shape stays fixed on the sphere as you drag and zoom.
+Orbit is a single-screen Expo app that turns a photo of something you care about into a drawing made of real stars. You explore a dark, accurate night sky, pick an image from your library, and the app places straight lines between actual stars from the HYG catalog so the shape stays fixed on the sphere as you drag and zoom.
 
 There is no camera preview, AR, or gyroscope in this version. The sky is a J2000 star sphere you navigate with touch only. A future device-attitude source could drive the same sky aim without adding a second rotation path.
 
@@ -8,7 +8,7 @@ There is no camera preview, AR, or gyroscope in this version. The sky is a J2000
 
 1. **Explore the sky** — Drag to look around, pinch to change field of view, tap a star to read its name and details.
 2. **Choose a photo** — Open the system photo library (not an in-app camera). A thumbnail confirms the selection.
-3. **Generate** — The app sends the resized image and optional subject prompt to the local Node API (SAM3 mask → **96×96** skeleton grid → strokes). When generation succeeds, lines appear between stars and animate in. You get a short constellation name, a one-sentence story, optional pipeline stage PNGs, and a debug trace in the dock.
+3. **Generate** — The app sends the resized image and optional subject prompt to the local Node API (SAM3 mask → **96×96** skeleton grid → strokes). When generation succeeds, lines appear between stars and animate in. The dock keeps the constellation name in its session list and shows four pipeline stage images.
 4. **Recall and reveal** — Switch among constellations created **this session** via chips in the dock. Tap the drawn figure on the sky to overlay the segmented subject (cutout from the photo) at low opacity.
 5. **Edit or share** — Connect stars by hand in manual mode, undo segments, clear the drawing, or export a PNG of the sky with caption text.
 

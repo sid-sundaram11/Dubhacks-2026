@@ -208,6 +208,7 @@ describe("local vs room constellation state", () => {
     let app = appReducer(initialAppState, {
       type: "generation_finished",
       constellation: local,
+      at: 1_760_000_000_000,
       generationProbe: null,
       inputPhotoUri: "file:///photo.jpg",
     });
@@ -251,6 +252,7 @@ describe("local vs room constellation state", () => {
     const afterGeneration = appReducer(initialAppState, {
       type: "generation_finished",
       constellation,
+      at: 1_760_000_000_000,
       generationProbe: null,
       inputPhotoUri: null,
     });

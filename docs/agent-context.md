@@ -1,10 +1,10 @@
-# Agent context — Constellations (dubhacks-2026)
+# Agent context — Orbit (dubhacks-2026)
 
 **Read this first** when changing generation, segmentation, skeleton, snapping, or sky UI. [`AGENTS.md`](../AGENTS.md) holds hard constraints; this file describes **current behavior** and **where code lives**.
 
 ## Product
 
-Single-screen Expo SDK 58 app (**Constellations** / AI Constellation Creator). User explores a **J2000 HYG star sphere** (touch drag/pinch only—no camera, AR, or gyro). They pick a **photo from the library**, optionally enter **Subject in the photo** (SAM3 text prompt), and generate a **custom constellation**: straight line segments between **real star ids** that approximate a stick figure of the subject.
+Single-screen Expo SDK 58 app (**Orbit** / AI Constellation Creator). User explores a **J2000 HYG star sphere** (touch drag/pinch only—no camera, AR, or gyro). They pick a **photo from the library**, optionally enter **Subject in the photo** (SAM3 text prompt), and generate a **custom constellation**: straight line segments between **real star ids** that approximate a stick figure of the subject.
 
 Manual star-to-star drawing, undo, clear, share PNG, and offline catalog browsing remain supported.
 
@@ -47,7 +47,7 @@ Base64 PNGs returned on success (also used in UI):
 | `skeleton` | Thinned medial axis on grid |
 | `nodes` | Skeleton + fitted stroke geometry / nodes |
 
-The dock shows a **Generation trace** JSON panel; the **bottom bar** shows thumbnails for `found`, `mask`, `skeleton`, `nodes` (labels 1–4).
+The **bottom bar** shows thumbnails for `found`, `mask`, `skeleton`, `nodes` (labels 1–4). Swipe down on the dock handle to expand the sky; swipe up to restore controls. Trace data remains in state for debugging but is not displayed.
 
 ### Debug payload (`debug`)
 

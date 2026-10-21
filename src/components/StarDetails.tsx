@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { palette, serif } from "../theme";
+import { palette, rounded } from "../theme";
 import { ControlButton } from "./ControlButton";
 
 interface StarDetailsProps {
@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
   card: { gap: 8, borderBottomWidth: 1, borderBottomColor: palette.border, paddingBottom: 16 },
   heading: { flexDirection: "row", alignItems: "center", gap: 12 },
   titleBlock: { flex: 1, gap: 4 },
-  kicker: { fontFamily: serif, fontSize: 11, letterSpacing: 2, color: palette.accent },
-  name: { fontFamily: serif, color: palette.text, fontSize: 24 },
-  meta: { fontFamily: serif, color: palette.secondary, fontSize: 14, lineHeight: 20 },
+  kicker: { fontFamily: rounded, fontSize: 11, letterSpacing: 2, color: palette.accent },
+  name: { fontFamily: rounded, color: palette.text, fontSize: 24 },
+  meta: { fontFamily: rounded, color: palette.secondary, fontSize: 14, lineHeight: 20 },
 });

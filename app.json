@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Constellations",
+    "name": "Orbit",
     "slug": "ai-constellation-creator",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,12 +10,12 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "Constellations connects to the Mac on your Wi‑Fi network that runs the constellation generator.",
+        "NSLocalNetworkUsageDescription": "Orbit connects to the Mac on your Wi‑Fi network that runs the constellation generator.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         }
       },
-      "bundleIdentifier": "com.angadslr.ai-constellation-creator"
+      "bundleIdentifier": "com.sidsundaram.orbit.dev"
     },
     "android": {
       "adaptiveIcon": {
@@ -34,7 +34,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Constellations uses photos to draw a constellation from the subject.",
+          "photosPermission": "Orbit uses photos to draw a constellation from the subject.",
           "cameraPermission": false,
           "microphonePermission": false
         }

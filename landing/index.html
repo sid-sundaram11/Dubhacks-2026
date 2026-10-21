@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orbit — AI Constellation Creator</title>
+  <meta name="description" content="Turn photographs into constellations across real stars.">
+  
+  <!-- EB Garamond for editorial serif headings, Geist for clean modern informational text -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css?v=11">
+</head>
+<body>
+
+  <!-- Fullscreen Celestial Canvas for Ambient Deep Space Background -->
+  <canvas id="celestial-hero-canvas"></canvas>
+
+  <div class="content-wrapper">
+
+    <!-- Header Navigation: Only ORBIT, Centered (Hides when scrolling down) -->
+    <header class="site-header" id="site-header">
+      <div class="brand-group">
+        <a href="#" class="brand-logo">
+          <span class="brand-glyph">✦</span>
+          <span>ORBIT</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- Hero Section: Centered with Rising Sun Dawn Gradient & Sketched Mountain -->
+    <section class="hero-section">
+      <div class="container">
+        <div class="hero-content">
+          <h1 class="hero-title">
+            Turn photographs into constellations across real stars.
+          </h1>
+          <p class="hero-lead">
+            Orbit segments your subject, thins it to a clean skeleton, and anchors straight-line asterisms to verified catalog stars.
+          </p>
+
+          <div class="hero-actions">
+            <a href="#demo" class="btn-primary">
+              <span>Watch Demo</span>
+              <span>&darr;</span>
+            </a>
+            <a href="#architecture" class="btn-secondary">
+              <span>Under the Hood</span>
+              <span>&rarr;</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sketched Mountain & Rising Sun Gradient Shader (Parallax scroll-away) -->
+      <div class="hero-mountain-layer" id="hero-mountain-layer" aria-hidden="true">
+        <div class="sunrise-glow-shader"></div>
+        <div class="mountain-svg-container">
+          <img src="assets/mountain-sketch.svg" alt="" class="mountain-sketch-img" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Star Atlas Demo (Giraffe Skeletonization & Constellation Snapping) -->
+    <section id="demo" class="page-section demo-section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Watch a photo become a constellation</h2>
+          <p class="section-subtitle">
+            Follow a photo of a giraffe as it transforms across 4 stages of skeletonization before anchoring to real catalog stars in Camelopardalis.
+          </p>
+        </div>
+
+        <div class="demo-player-card">
+          <!-- Demo Top Control Bar -->
+          <div class="demo-player-header">
+            <button type="button" id="demo-play-btn" class="demo-play-btn" aria-label="Play or Pause Demo">
+              <span class="play-icon" id="demo-play-icon">▶</span>
+              <span class="play-label" id="demo-play-label">Play Demo</span>
+            </button>
+
+            <div class="demo-steps-nav">
+              <button type="button" class="demo-step-pill active" data-step="0">
+                <span class="step-num mono">01</span>
+                <span class="step-label">Raw Photo</span>
+              </button>
+              <button type="button" class="demo-step-pill" data-step="1">
+                <span class="step-num mono">02</span>
+                <span class="step-label">SAM3 Cutout</span>
+              </button>
+              <button type="button" class="demo-step-pill" data-step="2">
+                <span class="step-num mono">03</span>
+                <span class="step-label">96&times;96 Grid</span>
+              </button>
+              <button type="button" class="demo-step-pill" data-step="3">
+                <span class="step-num mono">04</span>
+                <span class="step-label">Skeleton</span>
+              </button>
+              <button type="button" class="demo-step-pill" data-step="4">
+                <span class="step-num mono">05</span>
+                <span class="step-label">Star Constellation</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cinematic Viewport -->
+          <div class="demo-viewport">
+            <!-- Stages 0-3: Image Display View (Stage 0: COMPLETE RAW IMAGE) -->
+            <div id="demo-image-stage" class="demo-stage-view active">
+              <img id="demo-main-img" src="assets/demo/giraffe.jpg" alt="Complete Raw Input Photograph">
+            </div>
+
+            <!-- Stage 4: Live Interactive Star Atlas Canvas View (Stage 5 in 1-based index) -->
+            <div id="demo-sky-stage" class="demo-stage-view">
+              <canvas id="interactive-sky-canvas"></canvas>
+              <!-- 38% Photo Cutout Overlay (Correctly aligned with constellation) -->
+              <img id="sky-cutout-ghost" src="assets/stages/giraffe_found.png" alt="Giraffe Cutout Overlay" class="sky-ghost-overlay">
+              
+              <div class="sky-interactive-hint">
+                <span>✦ Drag to explore &middot; Snapped to real Camelopardalis stars</span>
+              </div>
+
+              <div class="sky-overlay-toggle-bar">
+                <button type="button" id="btn-toggle-sky-overlay" class="btn-toggle-sky">
+                  <span>Photo Overlay (38%)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Simple, User-Friendly Description Bar (Zero Information Bombardment) -->
+          <div class="demo-caption-bar">
+            <div class="caption-content">
+              <div class="caption-header-row">
+                <span class="caption-badge mono" id="demo-caption-badge">STAGE 01 / 05</span>
+                <h4 class="caption-title" id="demo-caption-title">Raw Input Photograph</h4>
+              </div>
+              <p class="caption-desc" id="demo-caption-desc">
+                The complete original photograph of the giraffe in the wild before any processing occurs.
+              </p>
+            </div>
+            
+            <!-- Progress Track -->
+            <div class="demo-progress-track">
+              <div class="demo-progress-fill" id="demo-progress-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Under the Hood / PowerPoint SmartArt Style Process Flowchart -->
+    <section id="architecture" class="page-section architecture-section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Under the hood</h2>
+          <p class="section-subtitle">
+            How Orbit transforms a raw photograph into celestial geometry.
+          </p>
+        </div>
+
+        <!-- PowerPoint SmartArt Visual Flowchart (Low text, high diagrammatic clarity) -->
+        <div class="smartart-flowchart">
+          
+          <!-- SmartArt 01: SAM3 Cutout -->
+          <div class="smartart-card">
+            <div class="smartart-card-top">
+              <span class="smartart-step-pill mono">01</span>
+              <span class="smartart-phase-name">SAM3 CUTOUT</span>
+            </div>
+            
+            <div class="smartart-visual">
+              <svg viewBox="0 0 200 110" class="smartart-diagram-svg" aria-hidden="true">
+                <!-- Cluttered photo background -->
+                <rect x="15" y="10" width="170" height="90" rx="8" fill="#09111c" stroke="#1c2d40" stroke-width="1.2"/>
+                <path d="M 25 85 L 50 45 L 75 85 Z" fill="#142132"/>
+                <path d="M 65 85 L 90 35 L 115 85 Z" fill="#142132"/>
+                <!-- Neural mask extraction boundary -->
+                <rect x="80" y="20" width="90" height="70" rx="6" fill="none" stroke="#9ecbd0" stroke-width="1.2" stroke-dasharray="4 3"/>
+                <!-- Isolated subject silhouette glowing -->
+                <path d="M 125 30 Q 140 32 145 42 L 142 60 L 152 85 L 140 85 L 135 65 L 125 65 L 122 85 L 112 85 L 118 55 Z" fill="#9ecbd0" fill-opacity="0.35" stroke="#9ecbd0" stroke-width="1.5"/>
+                <circle cx="130" cy="27" r="3" fill="#9ecbd0"/>
+              </svg>
+            </div>
+
+            <div class="smartart-summary">
+              <h4 class="smartart-action">Zero-Shot Isolation</h4>
+              <p class="smartart-desc">Vision foundation model cuts away background clutter.</p>
+            </div>
+          </div>
+
+          <!-- SmartArt Chevron Arrow 1 -->
+          <div class="smartart-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 40" class="chevron-svg">
+              <path d="M 4 4 L 20 20 L 4 36" fill="none" stroke="#2b3e55" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- SmartArt 02: Skeletonization -->
+          <div class="smartart-card">
+            <div class="smartart-card-top">
+              <span class="smartart-step-pill mono">02</span>
+              <span class="smartart-phase-name">SKELETONIZATION</span>
+            </div>
+
+            <div class="smartart-visual">
+              <svg viewBox="0 0 200 110" class="smartart-diagram-svg" aria-hidden="true">
+                <rect x="15" y="10" width="170" height="90" rx="8" fill="#09111c" stroke="#1c2d40" stroke-width="1.2"/>
+                <!-- 96x96 discrete grid overlay -->
+                <line x1="15" y1="35" x2="185" y2="35" stroke="#132030" stroke-width="0.8"/>
+                <line x1="15" y1="60" x2="185" y2="60" stroke="#132030" stroke-width="0.8"/>
+                <line x1="70" y1="10" x2="70" y2="100" stroke="#132030" stroke-width="0.8"/>
+                <line x1="130" y1="10" x2="130" y2="100" stroke="#132030" stroke-width="0.8"/>
+                <!-- Thinning skeleton stick figure -->
+                <path d="M 140 25 L 125 50 L 120 70 L 115 90 M 125 50 L 100 55 L 90 90 M 100 55 L 85 90" stroke="#e5be7a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="140" cy="25" r="3.5" fill="#e5be7a"/>
+                <!-- Thinning erosion contours -->
+                <path d="M 144 23 L 128 48 M 122 68 L 117 88" stroke="#e5be7a" stroke-width="1" stroke-opacity="0.3" stroke-dasharray="2 2"/>
+              </svg>
+            </div>
+
+            <div class="smartart-summary">
+              <h4 class="smartart-action">Medial Thinning</h4>
+              <p class="smartart-desc">Erodes 2D solid silhouette into a 1-pixel stick figure.</p>
+            </div>
+          </div>
+
+          <!-- SmartArt Chevron Arrow 2 -->
+          <div class="smartart-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 40" class="chevron-svg">
+              <path d="M 4 4 L 20 20 L 4 36" fill="none" stroke="#2b3e55" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- SmartArt 03: Finding Stars -->
+          <div class="smartart-card">
+            <div class="smartart-card-top">
+              <span class="smartart-step-pill mono">03</span>
+              <span class="smartart-phase-name">FINDING STARS</span>
+            </div>
+
+            <div class="smartart-visual">
+              <svg viewBox="0 0 200 110" class="smartart-diagram-svg" aria-hidden="true">
+                <rect x="15" y="10" width="170" height="90" rx="8" fill="#09111c" stroke="#1c2d40" stroke-width="1.2"/>
+                <!-- Catalog field stars -->
+                <circle cx="45" cy="30" r="2" fill="#8e9ca8"/>
+                <circle cx="65" cy="75" r="1.5" fill="#8e9ca8"/>
+                <circle cx="160" cy="35" r="2" fill="#8e9ca8"/>
+                <circle cx="150" cy="80" r="1.5" fill="#8e9ca8"/>
+                <!-- Skeleton joints snapping to stars -->
+                <circle cx="135" cy="30" r="4" fill="#ffffff"/>
+                <circle cx="118" cy="52" r="3.5" fill="#9ecbd0"/>
+                <circle cx="95" cy="58" r="3.5" fill="#ffd59e"/>
+                <circle cx="88" cy="85" r="3" fill="#9ecbd0"/>
+                <!-- Snap radii target rings -->
+                <circle cx="135" cy="30" r="10" fill="none" stroke="#9ecbd0" stroke-width="0.8" stroke-dasharray="2 2"/>
+                <circle cx="118" cy="52" r="8" fill="none" stroke="#9ecbd0" stroke-width="0.8" stroke-dasharray="2 2"/>
+                <line x1="135" y1="30" x2="118" y2="52" stroke="#9ecbd0" stroke-width="1.8"/>
+                <line x1="118" y1="52" x2="95" y2="58" stroke="#9ecbd0" stroke-width="1.8"/>
+                <line x1="95" y1="58" x2="88" y2="85" stroke="#9ecbd0" stroke-width="1.8"/>
+              </svg>
+            </div>
+
+            <div class="smartart-summary">
+              <h4 class="smartart-action">Astrometric Snapping</h4>
+              <p class="smartart-desc">Pairs skeleton joints with nearest real HYG catalog stars.</p>
+            </div>
+          </div>
+
+          <!-- SmartArt Chevron Arrow 3 -->
+          <div class="smartart-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 40" class="chevron-svg">
+              <path d="M 4 4 L 20 20 L 4 36" fill="none" stroke="#2b3e55" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- SmartArt 04: Displaying Constellation -->
+          <div class="smartart-card">
+            <div class="smartart-card-top">
+              <span class="smartart-step-pill mono">04</span>
+              <span class="smartart-phase-name">CELESTIAL DISPLAY</span>
+            </div>
+
+            <div class="smartart-visual">
+              <svg viewBox="0 0 200 110" class="smartart-diagram-svg" aria-hidden="true">
+                <rect x="15" y="10" width="170" height="90" rx="8" fill="#09111c" stroke="#1c2d40" stroke-width="1.2"/>
+                <!-- Dark J2000 celestial sphere arc -->
+                <path d="M 25 90 A 90 90 0 0 1 175 90" fill="none" stroke="#23354a" stroke-width="1" stroke-dasharray="3 3"/>
+                <!-- Constellation asterism glowing on the sky -->
+                <line x1="135" y1="35" x2="120" y2="55" stroke="#9ecbd0" stroke-width="2.2"/>
+                <line x1="120" y1="55" x2="98" y2="60" stroke="#9ecbd0" stroke-width="2.2"/>
+                <line x1="98" y1="60" x2="90" y2="84" stroke="#9ecbd0" stroke-width="2.2"/>
+                <!-- Luminous stars with atmospheric glow -->
+                <circle cx="135" cy="35" r="4.5" fill="#ffffff"/>
+                <circle cx="135" cy="35" r="9" fill="rgba(158, 203, 208, 0.25)"/>
+                <circle cx="120" cy="55" r="4" fill="#9ecbd0"/>
+                <circle cx="120" cy="55" r="8" fill="rgba(158, 203, 208, 0.25)"/>
+                <circle cx="98" cy="60" r="3.5" fill="#ffd59e"/>
+                <circle cx="90" cy="84" r="3.5" fill="#ffffff"/>
+              </svg>
+            </div>
+
+            <div class="smartart-summary">
+              <h4 class="smartart-action">Celestial Skyview</h4>
+              <p class="smartart-desc">Renders constellations across dark space on mobile.</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Local Runbook Code Terminal (Clean & Self-Contained) -->
+        <div class="code-terminal" id="run-local">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="terminal-dot"></span>
+              <span class="terminal-dot"></span>
+              <span class="terminal-dot"></span>
+            </div>
+            <span>LOCAL RUNBOOK</span>
+            <span class="mono">BASH</span>
+          </div>
+          <div class="terminal-body">
+            <p class="comment"># 1. Install dependencies</p>
+            <p><span class="prompt">$ </span><span class="cmd">npm install</span></p>
+            <br>
+            <p class="comment"># 2. Start SAM3 segmentation service (Python, port 8790)</p>
+            <p><span class="prompt">$ </span><span class="cmd">cd services/sam3 && source .venv/bin/activate && python app.py</span></p>
+            <br>
+            <p class="comment"># 3. Start geometry &amp; landing server (port 8787)</p>
+            <p><span class="prompt">$ </span><span class="cmd">npm run server</span></p>
+            <br>
+            <p class="comment"># 4. Launch Expo mobile starfield</p>
+            <p><span class="prompt">$ </span><span class="cmd">npx expo start</span></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer: Centered & Minimal -->
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-brand">
+            <h3>✦ ORBIT</h3>
+            <p>
+              Turn photographs into constellations across real stars.
+            </p>
+          </div>
+          <div class="footer-bottom mono">
+            &copy; 2026 Orbit &middot; Built with Expo, Three.js, SAM3 &amp; Node.js
+          </div>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Load bundled celestial data -->
+  <script src="assets/celestial-data.js?v=11"></script>
+  <!-- Load main interactive application logic -->
+  <script src="app.js?v=11"></script>
+</body>
+</html>

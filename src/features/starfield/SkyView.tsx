@@ -12,7 +12,7 @@ import { patchExpoWebGLForThree } from "./expoGlThree";
 import { constellationBounds, hitConstellation, pickStar, type ScreenRect } from "./picking";
 import { projectToScreen } from "./projection";
 import { SkyController, type SkyAim } from "./skyController";
-import { palette, serif } from "../../theme";
+import { palette, rounded } from "../../theme";
 import { placeStarLabels, type StarLabel } from "./starLabels";
 import { colorFromIndex, magnitudeToBrightness, magnitudeToSize } from "./starAppearance";
 
@@ -504,7 +504,7 @@ export const SkyView = forwardRef<SkyViewHandle, SkyViewProps>(function SkyView(
         ) : null}
         <View pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
           {labels.map((label) => (
-            <Text key={label.id} numberOfLines={1} maxFontSizeMultiplier={1.5} style={{ position: "absolute", left: label.x, top: label.y, width: label.width, height: label.height, fontFamily: serif, fontSize: 13, lineHeight: 20, color: palette.accent }}>
+            <Text key={label.id} numberOfLines={1} maxFontSizeMultiplier={1.5} style={{ position: "absolute", left: label.x, top: label.y, width: label.width, height: label.height, fontFamily: rounded, fontSize: 13, lineHeight: 20, color: palette.accent }}>
               {label.name}
             </Text>
           ))}

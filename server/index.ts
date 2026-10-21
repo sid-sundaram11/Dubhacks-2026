@@ -1,8 +1,12 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { resolve } from "node:path";
 import { loadLocalEnv } from "./env";
 import { handleGenerateConstellation } from "./handler";
+import { tryServeStatic } from "./staticServer";
 
 loadLocalEnv();
+
+const landingDir = resolve(__dirname, "../landing");
 
 function readBody(request: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -37,18 +41,21 @@ const server = createServer((request, nodeResponse) => {
     nodeResponse.end(JSON.stringify({ ok: true }));
     return;
   }
-  if (!request.url?.startsWith("/api/generate-constellation")) {
-    nodeResponse.writeHead(404);
-    nodeResponse.end();
+  if (request.url?.startsWith("/api/generate-constellation")) {
+    void toWebRequest(request)
+      .then((webRequest) => handleGenerateConstellation(webRequest))
+      .then((response) => writeResponse(nodeResponse, response))
+      .catch(() => {
+        nodeResponse.writeHead(500, { "content-type": "application/json" });
+        nodeResponse.end(JSON.stringify({ error: "generation_failed" }));
+      });
     return;
   }
-  void toWebRequest(request)
-    .then((webRequest) => handleGenerateConstellation(webRequest))
-    .then((response) => writeResponse(nodeResponse, response))
-    .catch(() => {
-      nodeResponse.writeHead(500, { "content-type": "application/json" });
-      nodeResponse.end(JSON.stringify({ error: "generation_failed" }));
-    });
+  if (tryServeStatic(request, nodeResponse, landingDir)) {
+    return;
+  }
+  nodeResponse.writeHead(404);
+  nodeResponse.end();
 });
 
 const port = Number(process.env.PORT ?? 8787);
